@@ -123,7 +123,7 @@ export function TableErrorState({ onRetry, className }: TableErrorStateProps) {
           <Button
             onClick={onRetry}
             size="sm"
-            variant="outline"
+            variant="secondary"
             leftIcon={<RefreshCw className="w-4 h-4" />}
           >
             Retry

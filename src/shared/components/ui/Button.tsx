@@ -26,7 +26,7 @@ const sizes = {
   lg: 'h-12 px-6 text-base',
 };
 
-export function Button({
+export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   variant = 'primary',
   size = 'md',
   isLoading = false,
@@ -39,11 +39,12 @@ export function Button({
   className,
   disabled,
   ...props
-}: ButtonProps) {
+}, ref) => {
   const loadingId = React.useMemo(() => generateId('loading'), []);
 
   return (
     <button
+      ref={ref}
       className={clsx(
         'inline-flex items-center justify-center rounded-md font-medium transition-colors',
         'focus:outline-none focus:ring-2 focus:ring-offset-2',
@@ -83,4 +84,4 @@ export function Button({
       )}
     </button>
   );
-}
+});

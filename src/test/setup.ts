@@ -13,11 +13,15 @@ afterEach(() => {
 
 // Mock IntersectionObserver
 global.IntersectionObserver = class IntersectionObserver {
-  constructor() {}
+  constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {}
   disconnect() {}
-  observe() {}
-  unobserve() {}
-};
+  observe(target: Element) {}
+  unobserve(target: Element) {}
+  takeRecords(): IntersectionObserverEntry[] { return []; }
+  readonly root: Element | Document | null = null;
+  readonly rootMargin: string = '';
+  readonly thresholds: ReadonlyArray<number> = [];
+} as any;
 
 // Mock ResizeObserver
 global.ResizeObserver = class ResizeObserver {

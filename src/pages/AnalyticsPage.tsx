@@ -26,8 +26,8 @@ function AnalyticsPage() {
     setDateRange(newDateRange);
   }, []);
 
-  const handleMetricChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedMetric(e.target.value);
+  const handleMetricChange = useCallback((metric: string) => {
+    setSelectedMetric(metric);
   }, []);
 
   const handleRetry = useCallback(() => {

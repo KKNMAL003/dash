@@ -72,7 +72,7 @@ export function DateRangePicker({
       <Button
         onClick={() => setIsOpen(!isOpen)}
         disabled={disabled}
-        variant="outline"
+        variant="secondary"
         leftIcon={<Calendar className="w-4 h-4" />}
         rightIcon={<ChevronDown className="w-4 h-4" />}
         className="min-w-[200px] justify-between"
@@ -137,7 +137,7 @@ export function DateRangePicker({
             <div className="flex justify-end space-x-2">
               <Button
                 size="sm"
-                variant="outline"
+                variant="secondary"
                 onClick={handleCancel}
               >
                 Cancel

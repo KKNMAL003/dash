@@ -6,6 +6,7 @@ interface CardProps {
   className?: string;
   padding?: 'none' | 'sm' | 'md' | 'lg';
   hover?: boolean;
+  onClick?: () => void;
 }
 
 const paddingClasses = {
@@ -15,15 +16,16 @@ const paddingClasses = {
   lg: 'p-8',
 };
 
-export function Card({ children, className, padding = 'md', hover = false }: CardProps) {
+export function Card({ children, className, padding = 'md', hover = false, onClick }: CardProps) {
   return (
     <div
       className={clsx(
         'card',
         paddingClasses[padding],
-        hover && 'hover:shadow-md transition-shadow cursor-pointer',
+        (hover || onClick) && 'hover:shadow-md transition-shadow cursor-pointer',
         className
       )}
+      onClick={onClick}
     >
       {children}
     </div>

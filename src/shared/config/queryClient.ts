@@ -134,7 +134,7 @@ export const cacheUtils = {
   prefetchDashboardStats: () => {
     return queryClient.prefetchQuery({
       queryKey: queryKeys.dashboard.stats(),
-      queryFn: () => import('../services/api').then(({ apiClient }) => apiClient.dashboard.getStats()),
+      queryFn: () => import('../services/api').then(({ apiClient }) => apiClient.analytics.getDashboardStats()),
       staleTime: 2 * 60 * 1000, // 2 minutes
     });
   },

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ResponsiveTable, OrderTable } from '../ResponsiveTable';
 
@@ -64,7 +64,6 @@ describe('ResponsiveTable', () => {
       <ResponsiveTable
         columns={mockColumns}
         data={mockData}
-        keyExtractor={(item) => item.id}
       />
     );
 
@@ -86,7 +85,6 @@ describe('ResponsiveTable', () => {
       <ResponsiveTable
         columns={mockColumns}
         data={mockData}
-        keyExtractor={(item) => item.id}
       />
     );
 
@@ -103,8 +101,7 @@ describe('ResponsiveTable', () => {
       <ResponsiveTable
         columns={mockColumns}
         data={[]}
-        keyExtractor={(item) => item.id}
-        isLoading={true}
+        loading={true}
       />
     );
 
@@ -117,7 +114,6 @@ describe('ResponsiveTable', () => {
       <ResponsiveTable
         columns={mockColumns}
         data={[]}
-        keyExtractor={(item) => item.id}
         emptyMessage="No data found"
       />
     );
@@ -130,7 +126,6 @@ describe('ResponsiveTable', () => {
       <ResponsiveTable
         columns={mockColumns}
         data={mockData}
-        keyExtractor={(item) => item.id}
         className="custom-table"
       />
     );
@@ -143,7 +138,6 @@ describe('ResponsiveTable', () => {
       <ResponsiveTable
         columns={mockColumns}
         data={mockData}
-        keyExtractor={(item) => item.id}
       />
     );
 
@@ -201,7 +195,7 @@ describe('OrderTable', () => {
   });
 
   it('shows loading state', () => {
-    render(<OrderTable orders={[]} isLoading={true} />);
+    render(<OrderTable orders={[]} loading={true} />);
 
     expect(screen.getAllByTestId('skeleton')).toHaveLength(5); // 5 skeleton rows
   });

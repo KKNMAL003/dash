@@ -56,7 +56,7 @@ export function ResponsiveChart({
       
       <div className="w-full" style={{ height: chartHeight }}>
         <ResponsiveContainer width="100%" height="100%">
-          {children}
+          {children as React.ReactElement}
         </ResponsiveContainer>
       </div>
     </div>
