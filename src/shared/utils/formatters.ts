@@ -1,7 +1,7 @@
 export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('en-ZA', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'ZAR',
   }).format(amount);
 }
 
@@ -31,7 +31,7 @@ export function formatFullName(firstName?: string | null, lastName?: string | nu
 }
 
 export function formatOrderId(id: string): string {
-  return `#${id.slice(0, 8)}`;
+  return `#${id.slice(-6)}`;
 }
 
 export function truncateText(text: string, maxLength: number): string {

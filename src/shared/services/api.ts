@@ -168,20 +168,32 @@ export class ApiClient {
 
     async getWithStats(customerId: string) {
       try {
-        const [profile, orders] = await Promise.all([
-          this.getById(customerId),
-          this.apiClient.orders.getAll({ customer_id: customerId })
-        ]);
+        // Get customer profile
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', customerId)
+          .single();
 
+        if (profileError) throw profileError;
         if (!profile) throw new Error('Customer not found');
 
-        const totalOrders = orders.length;
-        const totalSpent = orders.reduce((sum, order) => sum + (order.total_amount || 0), 0);
-        const activeOrders = orders.filter(order => 
+        // Get customer orders
+        const { data: orders, error: ordersError } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('customer_id', customerId);
+
+        if (ordersError) throw ordersError;
+
+        const ordersList = orders || [];
+        const totalOrders = ordersList.length;
+        const totalSpent = ordersList.reduce((sum, order) => sum + (order.total_amount || 0), 0);
+        const activeOrders = ordersList.filter(order =>
           !['delivered', 'cancelled'].includes(order.status)
         ).length;
-        const lastOrderDate = orders.length > 0 
-          ? orders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0].created_at
+        const lastOrderDate = ordersList.length > 0
+          ? ordersList.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0].created_at
           : null;
 
         return {
@@ -193,6 +205,65 @@ export class ApiClient {
             lastOrderDate,
           }
         };
+      } catch (error) {
+        return this.handleError(error);
+      }
+    },
+
+    async getAllWithStats(filters?: CustomerFilters) {
+      try {
+        // Get all customers
+        let query = supabase
+          .from('profiles')
+          .select('*')
+          .eq('role', 'customer')
+          .order('created_at', { ascending: false });
+
+        if (filters?.search) {
+          query = query.or(`first_name.ilike.%${filters.search}%,last_name.ilike.%${filters.search}%,phone.ilike.%${filters.search}%`);
+        }
+
+        const { data: customers, error: customersError } = await query;
+        if (customersError) throw customersError;
+
+        if (!customers || customers.length === 0) {
+          return [];
+        }
+
+        // Get all orders for these customers
+        const customerIds = customers.map(c => c.id);
+        const { data: allOrders, error: ordersError } = await supabase
+          .from('orders')
+          .select('*')
+          .in('customer_id', customerIds);
+
+        if (ordersError) throw ordersError;
+
+        // Calculate statistics for each customer
+        const customersWithStats = customers.map(customer => {
+          const customerOrders = (allOrders || []).filter(order => order.customer_id === customer.id);
+
+          const totalOrders = customerOrders.length;
+          const totalSpent = customerOrders.reduce((sum, order) => sum + (order.total_amount || 0), 0);
+          const activeOrders = customerOrders.filter(order =>
+            !['delivered', 'cancelled'].includes(order.status)
+          ).length;
+          const lastOrderDate = customerOrders.length > 0
+            ? customerOrders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0].created_at
+            : null;
+
+          return {
+            ...customer,
+            statistics: {
+              totalOrders,
+              totalSpent,
+              activeOrders,
+              lastOrderDate,
+            }
+          };
+        });
+
+        return customersWithStats;
       } catch (error) {
         return this.handleError(error);
       }
@@ -242,10 +313,16 @@ export class ApiClient {
             message: params.message,
             log_type: params.logType || 'user_message',
             subject: params.subject,
-            sender_type: 'staff',
+            sender_type: 'staff' as const,
             is_read: true,
           })
-          .select()
+          .select(`
+            *,
+            staff:profiles!communication_logs_staff_id_fkey(
+              first_name,
+              last_name
+            )
+          `)
           .single();
 
         if (error) throw error;
@@ -294,15 +371,32 @@ export class ApiClient {
         const { data, error } = await query;
         if (error) throw error;
 
+        // Process customers to sort their messages and calculate stats
+        const processedCustomers = data?.map(customer => {
+          // Sort communication logs by created_at descending (latest first)
+          const sortedLogs = customer.communication_logs?.sort((a: any, b: any) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          ) || [];
+
+          return {
+            ...customer,
+            communication_logs: sortedLogs,
+            latest_message: sortedLogs[0] || null,
+            unread_count: sortedLogs.filter((log: any) =>
+              log.sender_type === 'customer' && !log.is_read
+            ).length
+          };
+        }) || [];
+
         // Sort customers by most recent message
-        return data?.sort((a, b) => {
-          const aLastMessage = a.communication_logs?.[0]?.created_at;
-          const bLastMessage = b.communication_logs?.[0]?.created_at;
+        return processedCustomers.sort((a, b) => {
+          const aLastMessage = a.latest_message?.created_at;
+          const bLastMessage = b.latest_message?.created_at;
           if (!aLastMessage && !bLastMessage) return 0;
           if (!aLastMessage) return 1;
           if (!bLastMessage) return -1;
           return new Date(bLastMessage).getTime() - new Date(aLastMessage).getTime();
-        }) || [];
+        });
       } catch (error) {
         return this.handleError(error);
       }

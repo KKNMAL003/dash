@@ -1,4 +1,5 @@
 // Performance optimization utilities
+import React from 'react';
 
 export function memoizeAsync<T extends (...args: any[]) => Promise<any>>(
   fn: T,

@@ -26,3 +26,13 @@ export function useCustomerWithStats(id: string) {
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 }
+
+export function useCustomersWithStats(searchTerm?: string) {
+  const filters = searchTerm ? { search: searchTerm } : undefined;
+
+  return useQuery({
+    queryKey: ['customers', 'with-stats', filters],
+    queryFn: () => apiClient.customers.getAllWithStats(filters),
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  });
+}

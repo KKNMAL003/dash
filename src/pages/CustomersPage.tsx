@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Users, Package, Eye, Phone, MapPin, Calendar } from 'lucide-react';
-import { useCustomers } from '../shared/hooks/useCustomers';
+import { useCustomersWithStats } from '../shared/hooks/useCustomers';
 import { useOrders } from '../shared/hooks/useOrders';
+import { apiClient } from '../shared/services/api';
 import { DataTable, Modal, Button, LoadingSpinner, StatusBadge } from '../shared/components/ui';
 import { formatFullName, formatCurrency, formatDate } from '../shared/utils/formatters';
 import type { Profile, Order } from '../shared/types';
@@ -18,25 +19,32 @@ interface CustomerWithStats extends Profile {
 export default function CustomersPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerWithStats | null>(null);
   const [customerOrders, setCustomerOrders] = useState<Order[]>([]);
-  const { data: customers = [], isLoading } = useCustomers();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
-  // Transform customers data with statistics
-  const customersWithStats: CustomerWithStats[] = React.useMemo(() => {
-    return customers.map((customer) => ({
-      ...customer,
-      statistics: {
-        totalOrders: 0,
-        totalSpent: 0,
-        lastOrderDate: null,
-        activeOrders: 0,
-      },
-    }));
-  }, [customers]);
+  // Debounce search term
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Use the new hook that fetches customers with statistics
+  const { data: customersWithStats = [], isLoading } = useCustomersWithStats(debouncedSearchTerm || undefined);
 
   const handleViewDetails = async (customer: CustomerWithStats) => {
     setSelectedCustomer(customer);
-    // In a real implementation, we'd fetch customer orders here
-    setCustomerOrders([]);
+
+    // Fetch customer orders
+    try {
+      const orders = await apiClient.orders.getAll({ customer_id: customer.id });
+      setCustomerOrders(orders);
+    } catch (error) {
+      console.error('Failed to fetch customer orders:', error);
+      setCustomerOrders([]);
+    }
   };
 
   const columns = [
@@ -137,17 +145,30 @@ export default function CustomersPage() {
         </div>
       </div>
 
+      {/* Search */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex-1">
+          <input
+            type="text"
+            placeholder="Search customers by name, phone, or address..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          />
+        </div>
+      </div>
+
       {/* Data Table */}
       <DataTable
         data={customersWithStats}
         columns={columns}
         isLoading={isLoading}
-        searchable
-        searchPlaceholder="Search customers by name, phone, or address..."
         emptyState={{
           icon: <Users className="h-12 w-12" />,
           title: 'No customers found',
-          description: 'Customer profiles will appear here when they register.',
+          description: searchTerm
+            ? 'No customers match your search criteria. Try adjusting your search terms.'
+            : 'Customer profiles will appear here when they register.',
         }}
         onRowClick={handleViewDetails}
       />
