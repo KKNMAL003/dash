@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Search, User, MessageSquare } from 'lucide-react';
+import { Send, Search, User, MessageSquare, Bug } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCustomersWithChats, useCustomerMessages, useSendMessage, useMarkAsRead } from '../shared/hooks/useCommunications';
 import { LoadingSpinner, EmptyState } from '../shared/components/ui';
 import { formatFullName } from '../shared/utils/formatters';
 import { format } from 'date-fns';
+import { testChatFunctionality, testSendMessage } from '../utils/chatDebug';
 
 export default function ChatPage() {
   const { profile } = useAuth();
@@ -32,20 +33,43 @@ export default function ChatPage() {
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!message.trim() || !selectedCustomer?.id) return;
-    
+    if (!message.trim() || !selectedCustomer?.id) {
+      console.log('Cannot send message:', {
+        messageEmpty: !message.trim(),
+        noCustomer: !selectedCustomer?.id,
+        message: message.trim(),
+        customerId: selectedCustomer?.id
+      });
+      return;
+    }
+
+    console.log('Sending message:', {
+      customerId: selectedCustomer.id,
+      staffId: profile?.id || null,
+      message: message.trim(),
+    });
+
     sendMessageMutation.mutate({
       customerId: selectedCustomer.id,
       staffId: profile?.id || null,
       message: message.trim(),
     });
-    
+
     setMessage('');
   };
 
   const getUnreadCount = (customer: any) => {
     // Use the pre-calculated unread_count from the API
     return customer.unread_count || 0;
+  };
+
+  const handleDebugTest = async () => {
+    console.log('Running chat debug tests...');
+    await testChatFunctionality();
+
+    if (selectedCustomer?.id && profile?.id) {
+      await testSendMessage(selectedCustomer.id, profile.id, 'Debug test message');
+    }
   };
 
   const getLastMessage = (customer: any) => {
@@ -256,6 +280,27 @@ export default function ChatPage() {
 
             {/* Message Input */}
             <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200 bg-white">
+              {/* Debug info - remove in production */}
+              {process.env.NODE_ENV === 'development' && (
+                <div className="mb-2 p-2 bg-gray-100 rounded text-xs">
+                  <div className="flex justify-between items-center mb-1">
+                    <div>
+                      <div>Messages: {messages.length} | Loading: {messagesLoading ? 'Yes' : 'No'}</div>
+                      <div>Sending: {sendMessageMutation.isPending ? 'Yes' : 'No'}</div>
+                      <div>Customer ID: {selectedCustomer?.id}</div>
+                      <div>Staff ID: {profile?.id}</div>
+                    </div>
+                    <button
+                      onClick={handleDebugTest}
+                      className="px-2 py-1 bg-blue-500 text-white rounded text-xs flex items-center gap-1"
+                    >
+                      <Bug className="h-3 w-3" />
+                      Debug
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="flex space-x-2">
                 <input
                   type="text"

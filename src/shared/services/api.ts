@@ -277,6 +277,8 @@ export class ApiClient {
   communications = {
     async getByCustomerId(customerId: string): Promise<CommunicationLog[]> {
       try {
+        console.log('Fetching messages for customer:', customerId);
+
         const { data, error } = await supabase
           .from('communication_logs')
           .select(`
@@ -289,9 +291,15 @@ export class ApiClient {
           .eq('customer_id', customerId)
           .order('created_at', { ascending: true });
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error fetching messages:', error);
+          throw error;
+        }
+
+        console.log(`Fetched ${data?.length || 0} messages for customer ${customerId}`);
         return data || [];
       } catch (error) {
+        console.error('Get messages error:', error);
         return this.handleError(error);
       }
     },
@@ -304,18 +312,24 @@ export class ApiClient {
       subject?: string;
     }): Promise<CommunicationLog> {
       try {
+        console.log('Sending message:', params);
+
+        const insertData = {
+          user_id: params.customerId,
+          customer_id: params.customerId,
+          staff_id: params.staffId,
+          message: params.message,
+          log_type: params.logType || 'user_message',
+          subject: params.subject,
+          sender_type: 'staff' as const,
+          is_read: true,
+        };
+
+        console.log('Insert data:', insertData);
+
         const { data, error } = await supabase
           .from('communication_logs')
-          .insert({
-            user_id: params.customerId,
-            customer_id: params.customerId,
-            staff_id: params.staffId,
-            message: params.message,
-            log_type: params.logType || 'user_message',
-            subject: params.subject,
-            sender_type: 'staff' as const,
-            is_read: true,
-          })
+          .insert(insertData)
           .select(`
             *,
             staff:profiles!communication_logs_staff_id_fkey(
@@ -325,9 +339,15 @@ export class ApiClient {
           `)
           .single();
 
-        if (error) throw error;
+        if (error) {
+          console.error('Supabase insert error:', error);
+          throw error;
+        }
+
+        console.log('Message sent successfully:', data);
         return data;
       } catch (error) {
+        console.error('Send message error:', error);
         return this.handleError(error);
       }
     },
