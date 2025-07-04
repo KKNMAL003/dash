@@ -45,9 +45,9 @@ const mockMatchMedia = (matches: boolean) => {
 
 describe('ResponsiveTable', () => {
   const mockColumns = [
-    { key: 'name', header: 'Name', className: 'font-medium' },
-    { key: 'email', header: 'Email' },
-    { key: 'role', header: 'Role' },
+    { key: 'name' as const, header: 'Name', className: 'font-medium' },
+    { key: 'email' as const, header: 'Email' },
+    { key: 'role' as const, header: 'Role' },
   ];
 
   const mockData = [

@@ -190,28 +190,33 @@ describe('Accessibility Utils', () => {
       it('navigates with arrow keys', () => {
         const items = Array.from(document.querySelectorAll('button'));
         const item1 = document.getElementById('item1')!;
-        
+
         item1.focus();
-        
+
+        let newIndex = -1;
+        const onIndexChange = (index: number) => { newIndex = index; };
+
         const downEvent = new KeyboardEvent('keydown', { key: 'ArrowDown' });
-        const result = keyboardUtils.handleArrowNavigation(downEvent as any, items, 0);
-        
-        expect(result.handled).toBe(true);
-        expect(result.newIndex).toBe(1);
+        keyboardUtils.handleArrowNavigation(downEvent, 0, items.length, onIndexChange);
+
+        expect(newIndex).toBe(1);
       });
 
       it('wraps around at boundaries', () => {
         const items = Array.from(document.querySelectorAll('button'));
-        
+
+        let newIndex = -1;
+        const onIndexChange = (index: number) => { newIndex = index; };
+
         // Test wrapping from last to first
         const downEvent = new KeyboardEvent('keydown', { key: 'ArrowDown' });
-        const result1 = keyboardUtils.handleArrowNavigation(downEvent as any, items, 2);
-        expect(result1.newIndex).toBe(0);
-        
+        keyboardUtils.handleArrowNavigation(downEvent, 2, items.length, onIndexChange);
+        expect(newIndex).toBe(0);
+
         // Test wrapping from first to last
         const upEvent = new KeyboardEvent('keydown', { key: 'ArrowUp' });
-        const result2 = keyboardUtils.handleArrowNavigation(upEvent as any, items, 0);
-        expect(result2.newIndex).toBe(2);
+        keyboardUtils.handleArrowNavigation(upEvent, 0, items.length, onIndexChange);
+        expect(newIndex).toBe(2);
       });
     });
   });
@@ -230,56 +235,67 @@ describe('Accessibility Utils', () => {
 
     describe('getFieldAttributes', () => {
       it('returns correct attributes for form fields', () => {
-        const attrs = ariaUtils.getFieldAttributes({
-          required: true,
-          invalid: false,
-          describedBy: 'help-text',
-        });
-        
+        const attrs = ariaUtils.getFieldAttributes(
+          undefined, // labelId
+          'help-text', // describedById
+          true, // required
+          false // invalid
+        );
+
         expect(attrs).toEqual({
-          'aria-required': 'true',
-          'aria-invalid': 'false',
           'aria-describedby': 'help-text',
+          'aria-required': true,
         });
       });
     });
   });
 
   describe('formUtils', () => {
-    describe('getFieldErrorId', () => {
-      it('generates consistent error IDs', () => {
-        const id1 = formUtils.getFieldErrorId('email');
-        const id2 = formUtils.getFieldErrorId('email');
-        
-        expect(id1).toBe(id2);
-        expect(id1).toMatch(/^email-error-/);
+    describe('getErrorAttributes', () => {
+      it('generates error attributes when hasError is true', () => {
+        const attrs = formUtils.getErrorAttributes('email', 'email-error', true);
+
+        expect(attrs).toEqual({
+          'aria-describedby': 'email-error',
+          'aria-invalid': true,
+        });
+      });
+
+      it('generates empty object when hasError is false', () => {
+        const attrs = formUtils.getErrorAttributes('email', 'email-error', false);
+
+        expect(attrs).toEqual({});
       });
     });
 
-    describe('getFieldHelpId', () => {
-      it('generates consistent help IDs', () => {
-        const id = formUtils.getFieldHelpId('password');
-        expect(id).toMatch(/^password-help-/);
+    describe('getFormGroupAttributes', () => {
+      it('generates form group attributes', () => {
+        const attrs = formUtils.getFormGroupAttributes('label-id', 'field-id', 'error-id');
+
+        expect(attrs).toEqual({
+          role: 'group',
+          'aria-labelledby': 'label-id',
+          'aria-describedby': 'error-id',
+        });
       });
     });
   });
 
-  describe('getContrastRatio', () => {
-    it('calculates contrast ratios correctly', () => {
-      // White on black should have high contrast
-      const highContrast = getContrastRatio('#ffffff', '#000000');
-      expect(highContrast).toBeCloseTo(21, 0);
-      
-      // Same colors should have no contrast
-      const noContrast = getContrastRatio('#ffffff', '#ffffff');
-      expect(noContrast).toBe(1);
-    });
+  describe('contrastUtils', () => {
+    describe('meetsContrastRequirement', () => {
+      it('checks contrast requirements correctly', () => {
+        // Light on dark should meet requirements
+        const lightOnDark = contrastUtils.meetsContrastRequirement('white', 'gray-900');
+        expect(lightOnDark).toBe(true);
 
-    it('handles different color formats', () => {
-      const contrast1 = getContrastRatio('white', 'black');
-      const contrast2 = getContrastRatio('#ffffff', '#000000');
-      
-      expect(contrast1).toBeCloseTo(contrast2, 1);
+        // Dark on light should meet requirements
+        const darkOnLight = contrastUtils.meetsContrastRequirement('gray-900', 'white');
+        expect(darkOnLight).toBe(true);
+
+        // Similar colors should not meet requirements
+        const similar = contrastUtils.meetsContrastRequirement('gray-100', 'gray-200');
+        expect(similar).toBe(false);
+      });
     });
   });
 });

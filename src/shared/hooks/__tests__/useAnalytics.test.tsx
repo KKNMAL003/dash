@@ -34,7 +34,7 @@ const mockRecentOrders = [
     assigned_driver_id: null,
     delivery_address: '123 Main St',
     delivery_phone: '+1234567890',
-    payment_method: 'cash' as const,
+    payment_method: 'cash_on_delivery' as const,
     payment_status: 'pending' as const,
     customer_email: 'john@example.com',
     notes: null,
