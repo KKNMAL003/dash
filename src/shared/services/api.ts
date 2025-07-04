@@ -433,6 +433,137 @@ export class ApiClient {
       }
     },
 
+    async getSalesData(months: number = 6, dateRange?: { start: Date; end: Date }) {
+      try {
+        let startDate: Date;
+        let endDate: Date;
+
+        if (dateRange) {
+          startDate = dateRange.start;
+          endDate = dateRange.end;
+        } else {
+          startDate = new Date();
+          startDate.setMonth(startDate.getMonth() - months);
+          endDate = new Date();
+        }
+
+        const { data, error } = await supabase
+          .from('orders')
+          .select('total_amount, created_at, status')
+          .gte('created_at', startDate.toISOString())
+          .lte('created_at', endDate.toISOString())
+          .order('created_at', { ascending: true });
+
+        if (error) throw error;
+
+        // Group orders by month
+        const monthlyData = new Map();
+        const orders = data || [];
+
+        // Initialize months
+        for (let i = months - 1; i >= 0; i--) {
+          const date = new Date();
+          date.setMonth(date.getMonth() - i);
+          const monthKey = date.toLocaleDateString('en-US', { month: 'short' });
+          monthlyData.set(monthKey, { month: monthKey, sales: 0, orders: 0, revenue: 0 });
+        }
+
+        // Aggregate data by month
+        orders.forEach(order => {
+          const orderDate = new Date(order.created_at);
+          const monthKey = orderDate.toLocaleDateString('en-US', { month: 'short' });
+
+          if (monthlyData.has(monthKey)) {
+            const monthData = monthlyData.get(monthKey);
+            monthData.orders += 1;
+            monthData.sales += 1; // Alias for orders for backward compatibility
+            monthData.revenue += order.total_amount || 0;
+          }
+        });
+
+        return Array.from(monthlyData.values());
+      } catch (error) {
+        return this.handleError(error);
+      }
+    },
+
+    async getOrderStatusData() {
+      try {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('status');
+
+        if (error) throw error;
+
+        const statusCounts = {
+          pending: 0,
+          preparing: 0,
+          'out_for_delivery': 0,
+          delivered: 0,
+        };
+
+        (data || []).forEach(order => {
+          if (order.status in statusCounts) {
+            statusCounts[order.status as keyof typeof statusCounts]++;
+          }
+        });
+
+        return [
+          { status: 'Pending', count: statusCounts.pending },
+          { status: 'Preparing', count: statusCounts.preparing },
+          { status: 'Out For Delivery', count: statusCounts.out_for_delivery },
+          { status: 'Delivered', count: statusCounts.delivered },
+        ];
+      } catch (error) {
+        return this.handleError(error);
+      }
+    },
+
+    async getDeliveryPerformanceData() {
+      try {
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - 7); // Last 7 days
+
+        const { data, error } = await supabase
+          .from('orders')
+          .select('created_at, status, delivery_date')
+          .gte('created_at', startDate.toISOString())
+          .order('created_at', { ascending: true });
+
+        if (error) throw error;
+
+        // Group by day of week
+        const weeklyData = new Map();
+        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+        // Initialize days
+        days.forEach(day => {
+          weeklyData.set(day, { day, delivered: 0, pending: 0, failed: 0 });
+        });
+
+        (data || []).forEach(order => {
+          const orderDate = new Date(order.created_at);
+          const dayKey = days[orderDate.getDay() === 0 ? 6 : orderDate.getDay() - 1]; // Adjust for Monday start
+
+          if (weeklyData.has(dayKey)) {
+            const dayData = weeklyData.get(dayKey);
+
+            if (order.status === 'delivered') {
+              dayData.delivered++;
+            } else if (order.status === 'pending' || order.status === 'preparing' || order.status === 'out_for_delivery') {
+              dayData.pending++;
+            } else {
+              dayData.failed++;
+            }
+          }
+        });
+
+        return Array.from(weeklyData.values());
+      } catch (error) {
+        return this.handleError(error);
+      }
+    },
+
     async getRecentOrders(limit: number = 4): Promise<Order[]> {
       try {
         const { data, error } = await supabase

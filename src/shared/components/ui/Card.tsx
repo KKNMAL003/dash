@@ -50,7 +50,7 @@ interface CardTitleProps {
 
 export function CardTitle({ children, className }: CardTitleProps) {
   return (
-    <h3 className={clsx('text-lg font-semibold text-gray-900', className)}>
+    <h3 className={clsx('text-base sm:text-lg font-semibold text-gray-900 break-words', className)}>
       {children}
     </h3>
   );

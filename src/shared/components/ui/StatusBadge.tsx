@@ -10,9 +10,9 @@ interface StatusBadgeProps {
 
 const orderStatusColors = {
   pending: 'bg-yellow-100 text-yellow-800',
-  order_received: 'bg-blue-100 text-blue-800',
+  order_received: 'bg-orange-100 text-orange-800',
   order_confirmed: 'bg-purple-100 text-purple-800',
-  preparing: 'bg-orange-100 text-orange-800',
+  preparing: 'bg-amber-100 text-amber-800',
   scheduled_for_delivery: 'bg-indigo-100 text-indigo-800',
   driver_dispatched: 'bg-cyan-100 text-cyan-800',
   out_for_delivery: 'bg-green-100 text-green-800',

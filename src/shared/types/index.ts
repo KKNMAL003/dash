@@ -52,6 +52,7 @@ export interface Order extends BaseEntity {
   auto_status_enabled: boolean | null;
 }
 
+
 export interface OrderItem extends BaseEntity {
   order_id: string;
   product_id: string;

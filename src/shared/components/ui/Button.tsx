@@ -1,5 +1,6 @@
 import React from 'react';
 import { clsx } from 'clsx';
+import { generateId } from '../../utils/accessibility';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
@@ -7,6 +8,9 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   isLoading?: boolean;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
+  loadingText?: string;
+  ariaLabel?: string;
+  ariaDescribedBy?: string;
 }
 
 const variants = {
@@ -28,11 +32,16 @@ export function Button({
   isLoading = false,
   leftIcon,
   rightIcon,
+  loadingText = 'Loading...',
+  ariaLabel,
+  ariaDescribedBy,
   children,
   className,
   disabled,
   ...props
 }: ButtonProps) {
+  const loadingId = React.useMemo(() => generateId('loading'), []);
+
   return (
     <button
       className={clsx(
@@ -44,14 +53,34 @@ export function Button({
         className
       )}
       disabled={disabled || isLoading}
+      aria-label={ariaLabel}
+      aria-describedby={ariaDescribedBy}
+      aria-busy={isLoading}
+      {...(isLoading && { 'aria-describedby': `${ariaDescribedBy || ''} ${loadingId}`.trim() })}
       {...props}
     >
       {isLoading && (
-        <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+        <>
+          <div
+            className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+            aria-hidden="true"
+          />
+          <span id={loadingId} className="sr-only">
+            {loadingText}
+          </span>
+        </>
       )}
-      {!isLoading && leftIcon && <span className="mr-2">{leftIcon}</span>}
+      {!isLoading && leftIcon && (
+        <span className="mr-2" aria-hidden="true">
+          {leftIcon}
+        </span>
+      )}
       {children}
-      {!isLoading && rightIcon && <span className="ml-2">{rightIcon}</span>}
+      {!isLoading && rightIcon && (
+        <span className="ml-2" aria-hidden="true">
+          {rightIcon}
+        </span>
+      )}
     </button>
   );
 }

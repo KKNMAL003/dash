@@ -1,7 +1,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
+import { queryClient } from './shared/config/queryClient';
 import { AuthProvider } from './contexts/AuthContext';
 import { useAuth } from './contexts/AuthContext';
 import { ErrorBoundary } from './shared/components/ui';
@@ -11,25 +12,12 @@ import DashboardPage from './pages/DashboardPage';
 import OrdersPage from './pages/OrdersPage';
 import CustomersPage from './pages/CustomersPage';
 import ChatPage from './pages/ChatPage';
-import ProductsPage from './pages/ProductsPage';
+
 import DeliveryPage from './pages/DeliveryPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import SettingsPage from './pages/SettingsPage';
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      retry: 1,
-      refetchOnWindowFocus: false,
-    },
-    mutations: {
-      onError: (error) => {
-        console.error('Mutation error:', error);
-      },
-    },
-  },
-});
+
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -69,7 +57,7 @@ function AppRoutes() {
                   <Route path="/orders" element={<OrdersPage />} />
                   <Route path="/customers" element={<CustomersPage />} />
                   <Route path="/chat" element={<ChatPage />} />
-                  <Route path="/products" element={<ProductsPage />} />
+
                   <Route path="/delivery" element={<DeliveryPage />} />
                   <Route path="/analytics" element={<AnalyticsPage />} />
                   <Route path="/settings" element={<SettingsPage />} />

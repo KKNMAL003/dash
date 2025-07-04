@@ -1,44 +1,41 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { TrendingUp, DollarSign, Package, Users, Download, Calendar } from 'lucide-react';
-import { useDashboardStats } from '../shared/hooks/useAnalytics';
-import { Card, CardHeader, CardTitle, CardContent, Button, LoadingSpinner } from '../shared/components/ui';
+import { TrendingUp, DollarSign, Package, Users, Download, Calendar, AlertCircle } from 'lucide-react';
+import {
+  useDashboardStats,
+  useSalesData,
+  useDeliveryPerformanceData
+} from '../shared/hooks/useAnalytics';
+import { Card, CardHeader, CardTitle, CardContent, Button, LoadingSpinner, StatCardGrid, ErrorState, ChartErrorState, DateRangePicker, ResponsiveChart, ChartGrid, MetricChart } from '../shared/components/ui';
+import { useAnalyticsRetry } from '../shared/hooks/useRetry';
+import { DateRange, getDateRangeFromPreset } from '../shared/utils/dateRange';
 import { formatCurrency } from '../shared/utils/formatters';
 
-export default function AnalyticsPage() {
-  const [dateRange, setDateRange] = useState('6months');
+function AnalyticsPage() {
+  const [dateRange, setDateRange] = useState<DateRange>(getDateRangeFromPreset('6months'));
   const [selectedMetric, setSelectedMetric] = useState('revenue');
-  const { data: stats, isLoading } = useDashboardStats();
 
-  // Empty chart data - will be populated with real data in future updates
-  const salesData = [
-    { month: 'Jan', revenue: 0, orders: 0, customers: 0 },
-    { month: 'Feb', revenue: 0, orders: 0, customers: 0 },
-    { month: 'Mar', revenue: 0, orders: 0, customers: 0 },
-    { month: 'Apr', revenue: 0, orders: 0, customers: 0 },
-    { month: 'May', revenue: 0, orders: 0, customers: 0 },
-    { month: 'Jun', revenue: 0, orders: 0, customers: 0 },
-  ];
+  const { data: stats, isLoading: statsLoading, error: statsError } = useDashboardStats();
+  const { data: salesData = [], isLoading: salesLoading, error: salesError } = useSalesData(6, dateRange);
+  const { data: deliveryData = [], isLoading: deliveryLoading, error: deliveryError } = useDeliveryPerformanceData();
 
-  const deliveryData = [
-    { day: 'Mon', delivered: 0, failed: 0, pending: 0 },
-    { day: 'Tue', delivered: 0, failed: 0, pending: 0 },
-    { day: 'Wed', delivered: 0, failed: 0, pending: 0 },
-    { day: 'Thu', delivered: 0, failed: 0, pending: 0 },
-    { day: 'Fri', delivered: 0, failed: 0, pending: 0 },
-    { day: 'Sat', delivered: 0, failed: 0, pending: 0 },
-    { day: 'Sun', delivered: 0, failed: 0, pending: 0 },
-  ];
+  const { retry, isRetrying, canRetry } = useAnalyticsRetry();
 
-  if (isLoading) {
-    return (
-      <div className="p-6 flex justify-center">
-        <LoadingSpinner size="lg" />
-      </div>
-    );
-  }
+  // All hooks must be called before any early returns
+  const handleDateRangeChange = useCallback((newDateRange: DateRange) => {
+    setDateRange(newDateRange);
+  }, []);
 
-  const statCards = [
+  const handleMetricChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedMetric(e.target.value);
+  }, []);
+
+  const handleRetry = useCallback(() => {
+    retry(['dashboard-stats', 'sales-data', 'delivery-performance-data']);
+  }, [retry]);
+
+  // All useMemo hooks must be called before any early returns
+  const statCards = useMemo(() => [
     {
       name: 'Total Revenue',
       value: formatCurrency(stats?.totalRevenue || 0),
@@ -71,7 +68,32 @@ export default function AnalyticsPage() {
       color: 'bg-orange-500',
       change: '+0%',
     },
-  ];
+  ], [stats]);
+
+  const isLoading = statsLoading || salesLoading || deliveryLoading;
+  const hasError = statsError || salesError || deliveryError;
+
+  if (isLoading) {
+    return (
+      <div className="p-6 flex justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <div className="p-6">
+        <ErrorState
+          title="Failed to load analytics data"
+          message="Unable to fetch analytics information. Please check your connection and try again."
+          onRetry={canRetry ? handleRetry : undefined}
+          showRetry={canRetry}
+          type="network"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -82,17 +104,10 @@ export default function AnalyticsPage() {
           <p className="text-gray-600">Comprehensive business insights and performance metrics</p>
         </div>
         <div className="mt-4 sm:mt-0 flex space-x-3">
-          <select
+          <DateRangePicker
             value={dateRange}
-            onChange={(e) => setDateRange(e.target.value)}
-            className="input"
-          >
-            <option value="7days">Last 7 Days</option>
-            <option value="30days">Last 30 Days</option>
-            <option value="3months">Last 3 Months</option>
-            <option value="6months">Last 6 Months</option>
-            <option value="1year">Last Year</option>
-          </select>
+            onChange={handleDateRangeChange}
+          />
           <Button leftIcon={<Download className="w-4 h-4" />}>
             Export Report
           </Button>
@@ -100,83 +115,54 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {statCards.map((stat, index) => (
-          <Card key={index} padding="md" hover>
-            <div className="flex items-center">
-              <div className={`p-3 rounded-lg ${stat.color}`}>
-                <stat.icon className="h-6 w-6 text-white" />
-              </div>
-              <div className="ml-4 flex-1">
-                <p className="text-sm font-medium text-gray-600">{stat.name}</p>
-                <div className="flex items-center">
-                  <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-                  <span className="ml-2 text-sm font-medium text-gray-500">
-                    {stat.change}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
+      <StatCardGrid stats={statCards} />
 
       {/* Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <ChartGrid>
         {/* Revenue Trend */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Revenue Trend</CardTitle>
-              <select
-                value={selectedMetric}
-                onChange={(e) => setSelectedMetric(e.target.value)}
-                className="text-sm border border-gray-300 rounded px-2 py-1"
-              >
-                <option value="revenue">Revenue</option>
-                <option value="orders">Orders</option>
-                <option value="customers">Customers</option>
-              </select>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={salesData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Line 
-                  type="monotone" 
-                  dataKey={selectedMetric} 
-                  stroke="#3b82f6" 
-                  strokeWidth={2}
-                  dot={{ fill: '#3b82f6' }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        <MetricChart
+          title="Revenue Trend"
+          height={300}
+          mobileHeight={250}
+          metric={selectedMetric}
+          onMetricChange={handleMetricChange}
+          metricOptions={[
+            { value: 'revenue', label: 'Revenue' },
+            { value: 'orders', label: 'Orders' },
+            { value: 'customers', label: 'Customers' },
+          ]}
+        >
+          <LineChart data={salesData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="month" />
+            <YAxis />
+            <Tooltip />
+            <Line
+              type="monotone"
+              dataKey={selectedMetric}
+              stroke="#3b82f6"
+              strokeWidth={2}
+              dot={{ fill: '#3b82f6' }}
+            />
+          </LineChart>
+        </MetricChart>
 
         {/* Delivery Performance */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Weekly Delivery Performance</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={deliveryData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="delivered" fill="#10b981" name="Delivered" />
-                <Bar dataKey="pending" fill="#f59e0b" name="Pending" />
-                <Bar dataKey="failed" fill="#ef4444" name="Failed" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        <ResponsiveChart
+          title="Weekly Delivery Performance"
+          height={300}
+          mobileHeight={250}
+        >
+          <BarChart data={deliveryData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="day" />
+            <YAxis />
+            <Tooltip />
+            <Bar dataKey="delivered" fill="#10b981" name="Delivered" />
+            <Bar dataKey="pending" fill="#f59e0b" name="Pending" />
+            <Bar dataKey="failed" fill="#ef4444" name="Failed" />
+          </BarChart>
+        </ResponsiveChart>
 
         {/* Performance Metrics */}
         <Card>
@@ -223,7 +209,9 @@ export default function AnalyticsPage() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </ChartGrid>
     </div>
   );
 }
+
+export default React.memo(AnalyticsPage);

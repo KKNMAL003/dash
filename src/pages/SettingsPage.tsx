@@ -19,11 +19,8 @@ export default function SettingsPage() {
     business_address: '123 Business St, City, State 12345',
     business_phone: '+1234567890',
     business_email: 'info@onolo.com',
-    delivery_fee: 5.00,
-    free_delivery_threshold: 100.00,
     operating_hours_start: '08:00',
     operating_hours_end: '18:00',
-    max_delivery_distance: 50,
   });
 
   const [notificationSettings, setNotificationSettings] = useState({
@@ -39,8 +36,6 @@ export default function SettingsPage() {
     { id: 'profile', name: 'Profile', icon: User },
     { id: 'business', name: 'Business', icon: Globe },
     { id: 'notifications', name: 'Notifications', icon: Bell },
-    { id: 'delivery', name: 'Delivery', icon: Truck },
-    { id: 'pricing', name: 'Pricing', icon: DollarSign },
     { id: 'security', name: 'Security', icon: Shield },
   ];
 
@@ -178,15 +173,7 @@ export default function SettingsPage() {
                         />
                       </FormField>
                       
-                      <FormField>
-                        <FormLabel>Max Delivery Distance (km)</FormLabel>
-                        <FormInput
-                          type="number"
-                          value={businessSettings.max_delivery_distance}
-                          onChange={(e) => setBusinessSettings({ ...businessSettings, max_delivery_distance: parseInt(e.target.value) })}
-                        />
-                      </FormField>
-                      
+
                       <FormField className="md:col-span-2">
                         <FormLabel>Business Address</FormLabel>
                         <FormTextarea
@@ -277,44 +264,7 @@ export default function SettingsPage() {
               </Card>
             )}
 
-            {activeTab === 'pricing' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Pricing Settings</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Form onSubmit={(e) => { e.preventDefault(); handleSaveBusinessSettings(); }}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <FormField>
-                        <FormLabel required>Standard Delivery Fee ($)</FormLabel>
-                        <FormInput
-                          type="number"
-                          step="0.01"
-                          value={businessSettings.delivery_fee}
-                          onChange={(e) => setBusinessSettings({ ...businessSettings, delivery_fee: parseFloat(e.target.value) })}
-                        />
-                      </FormField>
-                      
-                      <FormField>
-                        <FormLabel required>Free Delivery Threshold ($)</FormLabel>
-                        <FormInput
-                          type="number"
-                          step="0.01"
-                          value={businessSettings.free_delivery_threshold}
-                          onChange={(e) => setBusinessSettings({ ...businessSettings, free_delivery_threshold: parseFloat(e.target.value) })}
-                        />
-                      </FormField>
-                    </div>
-                    
-                    <div className="mt-6">
-                      <Button type="submit" leftIcon={<Save className="w-4 h-4" />}>
-                        Save Changes
-                      </Button>
-                    </div>
-                  </Form>
-                </CardContent>
-              </Card>
-            )}
+
 
             {activeTab === 'security' && (
               <Card>

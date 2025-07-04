@@ -5,7 +5,6 @@ import {
   Package,
   Users,
   MessageSquare,
-  ShoppingCart,
   Truck,
   BarChart3,
   Settings,
@@ -13,6 +12,7 @@ import {
   Menu,
   X,
   Bell,
+  Flame,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -21,7 +21,7 @@ const navigation = [
   { name: 'Orders', href: '/orders', icon: Package },
   { name: 'Customers', href: '/customers', icon: Users },
   { name: 'Chat', href: '/chat', icon: MessageSquare },
-  { name: 'Products', href: '/products', icon: ShoppingCart },
+
   { name: 'Delivery', href: '/delivery', icon: Truck },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Settings', href: '/settings', icon: Settings },
@@ -74,7 +74,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </button>
             
             <div className="flex items-center space-x-4">
-              <button className="p-2 text-gray-400 hover:text-gray-500 relative">
+              <button
+                className="p-2 text-gray-400 hover:text-gray-500 relative"
+                onClick={() => {
+                  // TODO: Implement notifications panel
+                  alert('Notifications feature coming soon!');
+                }}
+                title="Notifications"
+              >
                 <Bell className="h-6 w-6" />
                 <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
                   3
@@ -117,7 +124,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="flex items-center flex-shrink-0 px-4">
           <div className="flex items-center">
             <div className="h-8 w-8 bg-primary-600 rounded-lg flex items-center justify-center">
-              <Truck className="h-5 w-5 text-white" />
+              <Flame className="h-5 w-5 text-white" />
             </div>
             <div className="ml-3">
               <h1 className="text-xl font-bold text-gray-900">Onolo Group</h1>
