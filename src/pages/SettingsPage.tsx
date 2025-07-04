@@ -1,12 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { User, Bell, Shield, Globe, Truck, DollarSign, Save } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Form, FormField, FormLabel, FormInput, FormTextarea, FormSelect } from '../shared/components/ui';
+import { useUpdateProfile, useBusinessSettings, useNotificationSettings } from '../shared/hooks/useSettings';
 
 export default function SettingsPage() {
   const { profile } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
-  
+
+  // Hooks
+  const updateProfileMutation = useUpdateProfile();
+  const { getBusinessSettings, saveBusinessSettings } = useBusinessSettings();
+  const { getNotificationSettings, saveNotificationSettings } = useNotificationSettings();
+
   const [profileData, setProfileData] = useState({
     first_name: profile?.first_name || '',
     last_name: profile?.last_name || '',
@@ -14,23 +20,20 @@ export default function SettingsPage() {
     address: profile?.address || '',
   });
 
-  const [businessSettings, setBusinessSettings] = useState({
-    business_name: 'Onolo Group',
-    business_address: '123 Business St, City, State 12345',
-    business_phone: '+1234567890',
-    business_email: 'info@onolo.com',
-    operating_hours_start: '08:00',
-    operating_hours_end: '18:00',
-  });
+  const [businessSettings, setBusinessSettings] = useState(getBusinessSettings());
+  const [notificationSettings, setNotificationSettings] = useState(getNotificationSettings());
 
-  const [notificationSettings, setNotificationSettings] = useState({
-    email_new_orders: true,
-    email_order_updates: true,
-    email_customer_messages: true,
-    sms_urgent_notifications: true,
-    push_new_orders: true,
-    push_delivery_updates: true,
-  });
+  // Update profile data when profile changes
+  useEffect(() => {
+    if (profile) {
+      setProfileData({
+        first_name: profile.first_name || '',
+        last_name: profile.last_name || '',
+        phone: profile.phone || '',
+        address: profile.address || '',
+      });
+    }
+  }, [profile]);
 
   const tabs = [
     { id: 'profile', name: 'Profile', icon: User },
@@ -39,16 +42,20 @@ export default function SettingsPage() {
     { id: 'security', name: 'Security', icon: Shield },
   ];
 
-  const handleSaveProfile = () => {
-    console.log('Saving profile:', profileData);
+  const handleSaveProfile = async () => {
+    try {
+      await updateProfileMutation.mutateAsync(profileData);
+    } catch (error) {
+      // Error is handled by the mutation
+    }
   };
 
   const handleSaveBusinessSettings = () => {
-    console.log('Saving business settings:', businessSettings);
+    saveBusinessSettings(businessSettings);
   };
 
   const handleSaveNotifications = () => {
-    console.log('Saving notification settings:', notificationSettings);
+    saveNotificationSettings(notificationSettings);
   };
 
   return (
@@ -129,8 +136,12 @@ export default function SettingsPage() {
                     </div>
                     
                     <div className="mt-6">
-                      <Button type="submit" leftIcon={<Save className="w-4 h-4" />}>
-                        Save Changes
+                      <Button
+                        type="submit"
+                        leftIcon={<Save className="w-4 h-4" />}
+                        disabled={updateProfileMutation.isPending}
+                      >
+                        {updateProfileMutation.isPending ? 'Saving...' : 'Save Changes'}
                       </Button>
                     </div>
                   </Form>

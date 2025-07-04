@@ -166,6 +166,25 @@ export class ApiClient {
       }
     },
 
+    async updateProfile(id: string, updates: Partial<Profile>): Promise<Profile> {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .update({
+            ...updates,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', id)
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data;
+      } catch (error) {
+        return this.handleError(error);
+      }
+    },
+
     async getWithStats(customerId: string) {
       try {
         // Get customer profile

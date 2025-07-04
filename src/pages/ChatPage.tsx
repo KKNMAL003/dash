@@ -260,10 +260,13 @@ export default function ChatPage() {
                             }`}
                           >
                             {format(new Date(msg.created_at), 'HH:mm')}
-                            {isStaffMessage && msg.staff && (
+                            {isStaffMessage && (
                               <span className="ml-1">
-                                • {formatFullName(msg.staff.first_name, msg.staff.last_name)}
+                                • Staff{msg.staff && ` (${formatFullName(msg.staff.first_name, msg.staff.last_name)})`}
                               </span>
+                            )}
+                            {!isStaffMessage && !isSystemMessage && (
+                              <span className="ml-1">• Customer</span>
                             )}
                             {isSystemMessage && (
                               <span className="ml-1">• Order Update</span>

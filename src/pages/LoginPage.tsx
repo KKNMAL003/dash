@@ -128,31 +128,7 @@ export default function LoginPage() {
               )}
             </button>
           </div>
-          
-          <div className="text-center">
-            <div className="bg-primary-500/20 rounded-lg p-3 mb-4">
-              <p className="text-xs text-primary-100 mb-2">
-                <strong>Demo Setup Required:</strong>
-              </p>
-              <p className="text-xs text-primary-100 mb-1">
-                1. Create user in Supabase Auth: <code className="bg-primary-600/30 px-1 rounded">admin@onolo.com</code>
-              </p>
-              <p className="text-xs text-primary-100 mb-1">
-                2. Then run this SQL in Supabase SQL Editor:
-              </p>
-              <p className="text-xs text-primary-100 mb-1">
-                <code className="bg-primary-600/30 px-1 rounded text-xs">
-                  UPDATE profiles SET role = 'admin' WHERE id = (SELECT id FROM auth.users WHERE email = 'admin@onolo.com');
-                </code>
-              </p>
-              <p className="text-xs text-primary-100">
-                Password: <code className="bg-primary-600/30 px-1 rounded">password123</code>
-              </p>
-            </div>
-            <p className="text-xs text-primary-200">
-              Or update any existing user's role to 'admin', 'staff', or 'driver'
-            </p>
-          </div>
+
         </form>
       </div>
     </div>
