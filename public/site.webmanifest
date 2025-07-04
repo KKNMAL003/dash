@@ -12,10 +12,17 @@
       "src": "/apple-touch-icon.png",
       "sizes": "180x180",
       "type": "image/png"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
     }
   ],
-  "theme_color": "#ea580c",
+  "theme_color": "#f97316",
   "background_color": "#ffffff",
   "display": "standalone",
-  "start_url": "/"
+  "start_url": "/",
+  "categories": ["business", "productivity"],
+  "lang": "en"
 }

@@ -5,6 +5,15 @@
       <stop offset="100%" style="stop-color:#ea580c;stop-opacity:1" />
     </linearGradient>
   </defs>
-  <path d="M16 2C8.268 2 2 8.268 2 16s6.268 14 14 14 14-6.268 14-14S23.732 2 16 2zm0 22c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8z" fill="url(#orangeGradient)"/>
-  <path d="M16 10c-3.314 0-6 2.686-6 6s2.686 6 6 6 6-2.686 6-6-2.686-6-6-6zm0 8c-1.105 0-2-0.895-2-2s0.895-2 2-2 2 0.895 2 2-0.895 2-2 2z" fill="white"/>
+  <!-- Outer orange oval shape -->
+  <ellipse cx="16" cy="16" rx="14" ry="11" fill="url(#orangeGradient)"/>
+
+  <!-- Inner white oval cutout -->
+  <ellipse cx="16" cy="16" rx="9" ry="7" fill="white"/>
+
+  <!-- Inner orange oval -->
+  <ellipse cx="14" cy="16" rx="6" ry="4.5" fill="url(#orangeGradient)"/>
+
+  <!-- Bottom shadow/depth effect -->
+  <ellipse cx="14" cy="18" rx="6" ry="2" fill="#d97706" opacity="0.3"/>
 </svg>
