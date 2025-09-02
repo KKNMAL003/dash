@@ -30,21 +30,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session?.user) {
         setUser(session.user);
         
-        // For admin dashboard, we'll just create a basic profile if user is admin
-        if (session.user.email === 'admin@onolo.com') {
-          setProfile({
-            id: session.user.id,
-            first_name: 'Admin',
-            last_name: 'User',
-            phone: null,
-            address: null,
-            role: 'admin',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            default_delivery_window: null,
-            default_latitude: null,
-            default_longitude: null,
-          });
+        // Check if user has an admin profile in the database
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .eq('role', 'admin')
+          .single();
+
+        if (profileData && profileData.role === 'admin') {
+          setProfile(profileData);
         } else {
           // For non-admin users, deny access
           toast.error('Access denied. Admin privileges required.');
@@ -63,23 +58,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (_event, session) => {
         setUser(session?.user ?? null);
         
-        if (session?.user?.email === 'admin@onolo.com') {
-          setProfile({
-            id: session.user.id,
-            first_name: 'Admin',
-            last_name: 'User',
-            phone: null,
-            address: null,
-            role: 'admin',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            default_delivery_window: null,
-            default_latitude: null,
-            default_longitude: null,
-          });
-        } else {
-          setProfile(null);
-          if (session?.user) {
+        // Check if user has an admin profile in the database
+        if (session?.user) {
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .eq('role', 'admin')
+            .single();
+
+          if (profileData && profileData.role === 'admin') {
+            setProfile(profileData);
+          } else {
+            setProfile(null);
             toast.error('Access denied. Admin privileges required.');
             await supabase.auth.signOut();
           }
