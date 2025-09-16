@@ -25,7 +25,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const initializeAuth = async () => {
     try {
       // Get current session
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        // Clear any invalid session
+        await supabase.auth.signOut();
+        setLoading(false);
+        return;
+      }
       
       if (session?.user) {
         setUser(session.user);
@@ -38,7 +46,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .eq('role', 'admin')
           .single();
 
-        if (profileData && profileData.role === 'admin') {
+        if (profileError) {
+          console.error('Profile error:', profileError);
+          // If profile doesn't exist or user is not admin, sign out
+          toast.error('Access denied. Admin privileges required.');
+          await supabase.auth.signOut();
+        } else if (profileData && profileData.role === 'admin') {
           setProfile(profileData);
         } else {
           // For non-admin users, deny access
@@ -50,16 +63,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     } catch (error) {
       console.error('Auth initialization error:', error);
+      // Clear any invalid session on error
+      await supabase.auth.signOut();
       setLoading(false);
     }
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setUser(session?.user ?? null);
+      async (event, session) => {
+        console.log('Auth state change:', event, session?.user?.id);
+        
+        if (event === 'SIGNED_OUT' || !session?.user) {
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+        
+        setUser(session.user);
         
         // Check if user has an admin profile in the database
-        if (session?.user) {
+        try {
           const { data: profileData, error: profileError } = await supabase
             .from('profiles')
             .select('*')
@@ -67,13 +91,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .eq('role', 'admin')
             .single();
 
-          if (profileData && profileData.role === 'admin') {
+          if (profileError) {
+            console.error('Profile error in auth change:', profileError);
+            setProfile(null);
+            toast.error('Access denied. Admin privileges required.');
+            await supabase.auth.signOut();
+          } else if (profileData && profileData.role === 'admin') {
             setProfile(profileData);
           } else {
             setProfile(null);
             toast.error('Access denied. Admin privileges required.');
             await supabase.auth.signOut();
           }
+        } catch (error) {
+          console.error('Error checking profile in auth change:', error);
+          setProfile(null);
+          await supabase.auth.signOut();
         }
         
         setLoading(false);

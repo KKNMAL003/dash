@@ -15,6 +15,8 @@ import {
   Flame,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotifications } from '../../shared/hooks/useNotifications';
+import NotificationPanel from '../../shared/components/ui/NotificationPanel';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
@@ -33,7 +35,9 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
   const { profile, signOut } = useAuth();
+  const { unreadCount } = useNotifications();
   const location = useLocation();
 
   return (
@@ -76,16 +80,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <div className="flex items-center space-x-4">
               <button
                 className="p-2 text-gray-400 hover:text-gray-500 relative"
-                onClick={() => {
-                  // TODO: Implement notifications panel
-                  alert('Notifications feature coming soon!');
-                }}
+                onClick={() => setNotificationPanelOpen(true)}
                 title="Notifications"
               >
                 <Bell className="h-6 w-6" />
-                <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                  3
-                </span>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
               </button>
               
               <div className="flex items-center space-x-3">
@@ -115,6 +118,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           {children}
         </main>
       </div>
+
+      {/* Notification Panel */}
+      <NotificationPanel 
+        isOpen={notificationPanelOpen} 
+        onClose={() => setNotificationPanelOpen(false)} 
+      />
     </div>
   );
 

@@ -11,46 +11,89 @@ export function useCustomersWithChats(searchTerm?: string) {
     queryKey: ['customers-with-chats', searchTerm],
     queryFn: () => apiClient.communications.getCustomersWithChats(searchTerm),
     staleTime: 30 * 1000, // Consider data fresh for 30 seconds
-    refetchInterval: 15000, // Refetch every 15 seconds as fallback
+    refetchInterval: 30000, // Refetch every 30 seconds as fallback (reduced frequency)
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
-  // Set up real-time subscription for communication logs
+  // Set up real-time subscription for communication logs with better error handling
   useEffect(() => {
-    const subscription = supabase
-      .channel('communication-logs-global')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'communication_logs',
-        },
-        (payload) => {
-          console.log('Communication log update received:', payload);
-          // Invalidate customers with chats when any communication log changes
-          queryClient.invalidateQueries({ queryKey: ['customers-with-chats'] });
+    let subscription: any = null;
+    let retryCount = 0;
+    const maxRetries = 3;
 
-          // Also invalidate specific customer messages if we know the customer_id
-          if (payload.new && (payload.new as any).customer_id) {
-            queryClient.invalidateQueries({ queryKey: ['messages', (payload.new as any).customer_id] });
+    const setupSubscription = () => {
+      subscription = supabase
+        .channel('communication-logs-global')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'communication_logs',
+          },
+          (payload) => {
+            console.log('Communication log update received:', payload);
+            
+            // Optimistic updates for better UX
+            if (payload.eventType === 'INSERT' && payload.new) {
+              const newMessage = payload.new as any;
+              if (newMessage.customer_id) {
+                // Update customers list optimistically
+                queryClient.setQueryData(['customers-with-chats'], (old: any) => {
+                  if (!old) return old;
+                  
+                  return old.map((customer: any) => {
+                    if (customer.id === newMessage.customer_id) {
+                      return {
+                        ...customer,
+                        latest_message: newMessage,
+                        unread_count: newMessage.sender_type === 'customer' 
+                          ? (customer.unread_count || 0) + 1 
+                          : customer.unread_count || 0
+                      };
+                    }
+                    return customer;
+                  });
+                });
+              }
+            }
+
+            // Invalidate queries for fresh data
+            queryClient.invalidateQueries({ queryKey: ['customers-with-chats'] });
+
+            // Also invalidate specific customer messages if we know the customer_id
+            if (payload.new && (payload.new as any).customer_id) {
+              queryClient.invalidateQueries({ queryKey: ['messages', (payload.new as any).customer_id] });
+            }
+            if (payload.old && (payload.old as any).customer_id) {
+              queryClient.invalidateQueries({ queryKey: ['messages', (payload.old as any).customer_id] });
+            }
           }
-          if (payload.old && (payload.old as any).customer_id) {
-            queryClient.invalidateQueries({ queryKey: ['messages', (payload.old as any).customer_id] });
+        )
+        .subscribe((status) => {
+          console.log('Communication subscription status:', status);
+          if (status === 'SUBSCRIBED') {
+            console.log('Successfully subscribed to communication logs');
+            retryCount = 0; // Reset retry count on successful subscription
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error('Error subscribing to communication logs');
+            if (retryCount < maxRetries) {
+              retryCount++;
+              console.log(`Retrying subscription (${retryCount}/${maxRetries})...`);
+              setTimeout(setupSubscription, 1000 * retryCount); // Exponential backoff
+            }
           }
-        }
-      )
-      .subscribe((status) => {
-        console.log('Communication subscription status:', status);
-        if (status === 'SUBSCRIBED') {
-          console.log('Successfully subscribed to communication logs');
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error('Error subscribing to communication logs');
-        }
-      });
+        });
+    };
+
+    setupSubscription();
 
     return () => {
       console.log('Unsubscribing from communication logs');
-      subscription.unsubscribe();
+      if (subscription) {
+        subscription.unsubscribe();
+      }
     };
   }, [queryClient]);
 
@@ -65,42 +108,84 @@ export function useCustomerMessages(customerId: string) {
     queryFn: () => apiClient.communications.getByCustomerId(customerId),
     enabled: !!customerId,
     staleTime: 30 * 1000, // Consider data fresh for 30 seconds
-    refetchInterval: 10000, // Refetch every 10 seconds as fallback
+    refetchInterval: 20000, // Refetch every 20 seconds as fallback (reduced frequency)
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
-  // Set up real-time subscription for new messages
+  // Set up real-time subscription for new messages with better error handling
   useEffect(() => {
     if (!customerId) return;
 
-    const subscription = supabase
-      .channel(`messages-${customerId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'communication_logs',
-          filter: `customer_id=eq.${customerId}`,
-        },
-        (payload) => {
-          console.log('Message update received for customer:', customerId, payload);
-          // Invalidate and refetch messages when changes occur
-          queryClient.invalidateQueries({ queryKey: ['messages', customerId] });
-          queryClient.invalidateQueries({ queryKey: ['customers-with-chats'] });
-        }
-      )
-      .subscribe((status) => {
-        console.log(`Message subscription status for customer ${customerId}:`, status);
-        if (status === 'SUBSCRIBED') {
-          console.log(`Successfully subscribed to messages for customer ${customerId}`);
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error(`Error subscribing to messages for customer ${customerId}`);
-        }
-      });
+    let subscription: any = null;
+    let retryCount = 0;
+    const maxRetries = 3;
+
+    const setupSubscription = () => {
+      subscription = supabase
+        .channel(`messages-${customerId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'communication_logs',
+            filter: `customer_id=eq.${customerId}`,
+          },
+          (payload) => {
+            console.log('Message update received for customer:', customerId, payload);
+            
+            // Optimistic updates for better UX
+            if (payload.eventType === 'INSERT' && payload.new) {
+              const newMessage = payload.new as any;
+              queryClient.setQueryData(['messages', customerId], (old: any) => {
+                if (!old) return [newMessage];
+                
+                // Check if message already exists to avoid duplicates
+                const exists = old.some((msg: any) => msg.id === newMessage.id);
+                if (exists) return old;
+                
+                return [...old, newMessage];
+              });
+            } else if (payload.eventType === 'UPDATE' && payload.new) {
+              const updatedMessage = payload.new as any;
+              queryClient.setQueryData(['messages', customerId], (old: any) => {
+                if (!old) return old;
+                
+                return old.map((msg: any) => 
+                  msg.id === updatedMessage.id ? updatedMessage : msg
+                );
+              });
+            }
+
+            // Invalidate queries for fresh data
+            queryClient.invalidateQueries({ queryKey: ['messages', customerId] });
+            queryClient.invalidateQueries({ queryKey: ['customers-with-chats'] });
+          }
+        )
+        .subscribe((status) => {
+          console.log(`Message subscription status for customer ${customerId}:`, status);
+          if (status === 'SUBSCRIBED') {
+            console.log(`Successfully subscribed to messages for customer ${customerId}`);
+            retryCount = 0; // Reset retry count on successful subscription
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error(`Error subscribing to messages for customer ${customerId}`);
+            if (retryCount < maxRetries) {
+              retryCount++;
+              console.log(`Retrying message subscription for customer ${customerId} (${retryCount}/${maxRetries})...`);
+              setTimeout(setupSubscription, 1000 * retryCount); // Exponential backoff
+            }
+          }
+        });
+    };
+
+    setupSubscription();
 
     return () => {
       console.log(`Unsubscribing from messages for customer ${customerId}`);
-      subscription.unsubscribe();
+      if (subscription) {
+        subscription.unsubscribe();
+      }
     };
   }, [customerId, queryClient]);
 
@@ -117,12 +202,13 @@ export function useSendMessage() {
       await queryClient.cancelQueries({ queryKey: ['messages', variables.customerId] });
       await queryClient.cancelQueries({ queryKey: ['customers-with-chats'] });
 
-      // Snapshot the previous value
+      // Snapshot the previous values
       const previousMessages = queryClient.getQueryData(['messages', variables.customerId]);
+      const previousCustomers = queryClient.getQueryData(['customers-with-chats']);
 
-      // Optimistically update the messages
+      // Create optimistic message with better structure
       const optimisticMessage = {
-        id: `temp-${Date.now()}`,
+        id: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         customer_id: variables.customerId,
         staff_id: variables.staffId,
         message: variables.message,
@@ -133,34 +219,93 @@ export function useSendMessage() {
         log_type: variables.logType || 'user_message',
         subject: variables.subject || null,
         user_id: variables.customerId,
-        staff: variables.staffId ? { first_name: 'You', last_name: '' } : null
+        staff: variables.staffId ? { 
+          first_name: 'You', 
+          last_name: '',
+          id: variables.staffId 
+        } : null,
+        isOptimistic: true // Flag to identify optimistic messages
       };
 
+      // Optimistically update messages
       queryClient.setQueryData(['messages', variables.customerId], (old: any) => {
-        return old ? [...old, optimisticMessage] : [optimisticMessage];
+        if (!old) return [optimisticMessage];
+        
+        // Check if message already exists to avoid duplicates
+        const exists = old.some((msg: any) => 
+          msg.id === optimisticMessage.id || 
+          (msg.isOptimistic && msg.message === optimisticMessage.message && 
+           Math.abs(new Date(msg.created_at).getTime() - new Date(optimisticMessage.created_at).getTime()) < 1000)
+        );
+        
+        if (exists) return old;
+        
+        return [...old, optimisticMessage];
       });
 
-      // Return a context object with the snapshotted value
-      return { previousMessages, optimisticMessage };
+      // Optimistically update customers list
+      queryClient.setQueryData(['customers-with-chats'], (old: any) => {
+        if (!old) return old;
+        
+        return old.map((customer: any) => {
+          if (customer.id === variables.customerId) {
+            return {
+              ...customer,
+              latest_message: optimisticMessage,
+              // Don't increment unread count for staff messages
+              unread_count: customer.unread_count || 0
+            };
+          }
+          return customer;
+        });
+      });
+
+      // Return a context object with the snapshotted values
+      return { previousMessages, previousCustomers, optimisticMessage };
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (data, variables, context) => {
+      // Remove the optimistic message and replace with real data
+      if (context?.optimisticMessage) {
+        queryClient.setQueryData(['messages', variables.customerId], (old: any) => {
+          if (!old) return old;
+          return old.filter((msg: any) => msg.id !== context.optimisticMessage.id);
+        });
+      }
+
       // Invalidate and refetch to get the real data
       queryClient.invalidateQueries({ queryKey: ['messages', variables.customerId] });
       queryClient.invalidateQueries({ queryKey: ['customers-with-chats'] });
+      
+      // Show success message
       toast.success('Message sent successfully');
     },
     onError: (error, variables, context) => {
-      // If the mutation fails, use the context returned from onMutate to roll back
+      // If the mutation fails, roll back to previous state
       if (context?.previousMessages) {
         queryClient.setQueryData(['messages', variables.customerId], context.previousMessages);
       }
+      if (context?.previousCustomers) {
+        queryClient.setQueryData(['customers-with-chats'], context.previousCustomers);
+      }
+      
       console.error('Send message error:', error);
+      
+      // Show error message
       toast.error(error.message || 'Failed to send message');
     },
-    onSettled: (_, __, variables) => {
+    onSettled: (data, error, variables) => {
       // Always refetch after error or success to ensure we have the latest data
       queryClient.invalidateQueries({ queryKey: ['messages', variables.customerId] });
+      queryClient.invalidateQueries({ queryKey: ['customers-with-chats'] });
     },
+    retry: (failureCount, error) => {
+      // Retry up to 2 times for network errors
+      if (failureCount < 2 && error.message?.includes('network')) {
+        return true;
+      }
+      return false;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 3000),
   });
 }
 

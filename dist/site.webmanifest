@@ -1,0 +1,28 @@
+{
+  "name": "Onolo Group Admin Dashboard",
+  "short_name": "Onolo Admin",
+  "description": "Admin dashboard for Onolo Group gas delivery service",
+  "icons": [
+    {
+      "src": "/favicon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "theme_color": "#f97316",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "start_url": "/",
+  "categories": ["business", "productivity"],
+  "lang": "en"
+}

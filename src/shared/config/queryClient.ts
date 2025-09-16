@@ -42,6 +42,11 @@ export const queryClient = new QueryClient({
         if (error?.status >= 400 && error?.status < 500) {
           return false;
         }
+        // Don't retry on chunk loading errors
+        if (error?.message?.includes('ChunkLoadError') ||
+            error?.message?.includes('Loading chunk')) {
+          return false;
+        }
         return failureCount < 3;
       },
       

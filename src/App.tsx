@@ -6,6 +6,7 @@ import { queryClient } from './shared/config/queryClient';
 import { AuthProvider } from './contexts/AuthContext';
 import { useAuth } from './contexts/AuthContext';
 import { ErrorBoundary } from './shared/components/ui';
+import { useGlobalErrorHandler, useNetworkStatus } from './shared/hooks/useErrorRecovery';
 import LoginPage from './pages/LoginPage';
 import DashboardLayout from './components/layout/DashboardLayout';
 import DashboardPage from './pages/DashboardPage';
@@ -72,11 +73,15 @@ function AppRoutes() {
 }
 
 function App() {
+  // Initialize global error handling
+  useGlobalErrorHandler();
+  const { isOnline } = useNetworkStatus();
+
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <Router>
+          <Router future={{ v7_relativeSplatPath: true }}>
             <AppRoutes />
             <Toaster 
               position="top-right"
@@ -88,6 +93,12 @@ function App() {
                 },
               }}
             />
+            {/* Network status indicator */}
+            {!isOnline && (
+              <div className="fixed top-0 left-0 right-0 bg-red-500 text-white text-center py-2 text-sm z-50">
+                You are offline. Some features may not work.
+              </div>
+            )}
           </Router>
         </AuthProvider>
       </QueryClientProvider>
