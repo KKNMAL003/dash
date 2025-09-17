@@ -44,13 +44,23 @@ export function useNotifications() {
     setUnreadCount(newNotifications.filter(n => !n.is_read).length);
   }, [user]);
 
-  // Add a new notification
-  const addNotification = useCallback((notification: Omit<ClientNotification, 'id' | 'created_at' | 'is_read'>) => {
+  type NewClientNotification = Omit<ClientNotification, 'created_at' | 'is_read'> & { id?: string };
+
+  // Add a new notification with de-duplication
+  const addNotification = useCallback((notification: NewClientNotification) => {
     if (!user) return;
 
+    const deterministicId = notification.id || `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    if (notifications.some(n => n.id === deterministicId)) {
+      return; // Skip duplicates
+    }
+
     const newNotification: ClientNotification = {
-      ...notification,
-      id: `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: deterministicId,
+      type: notification.type,
+      title: notification.title,
+      message: notification.message,
+      data: notification.data,
       created_at: new Date().toISOString(),
       is_read: false,
     };
@@ -90,7 +100,10 @@ export function useNotifications() {
                    changeType === 'cancelled' ? `Order #${order.id.slice(-8)} has been cancelled` :
                    `Order #${order.id.slice(-8)} status changed to ${order.status}`;
 
+    // Use deterministic id for de-duplication
+    const timeKey = (order as any).updated_at || (order as any).created_at || new Date().toISOString();
     addNotification({
+      id: `order_${order.id}_${changeType}_${timeKey}`,
       type: changeType === 'new' ? 'order_new' :
             changeType === 'cancelled' ? 'order_cancelled' : 'order_status_change',
       title,
@@ -109,6 +122,7 @@ export function useNotifications() {
     if (message.sender_type !== 'customer') return;
 
     addNotification({
+      id: `message_${message.id}`,
       type: 'message_new',
       title: 'New Message from Customer',
       message: `${message.subject || 'New message'}: ${message.message.substring(0, 100)}${message.message.length > 100 ? '...' : ''}`,
@@ -121,58 +135,99 @@ export function useNotifications() {
     });
   }, [addNotification]);
 
-  // Set up real-time subscriptions
+  // Set up real-time subscriptions with retries
   useEffect(() => {
     if (!user) return;
 
     loadNotifications();
 
-    // Subscribe to order changes
-    const orderChannel = supabase
-      .channel('admin-orders')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'orders',
-        },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            createOrderNotification(payload.new as Order, 'new');
-          } else if (payload.eventType === 'UPDATE') {
-            const oldOrder = payload.old as Order;
-            const newOrder = payload.new as Order;
-            
-            if (newOrder.status === 'cancelled' && oldOrder.status !== 'cancelled') {
-              createOrderNotification(newOrder, 'cancelled');
-            } else if (newOrder.status !== oldOrder.status) {
-              createOrderNotification(newOrder, 'status_change');
+    let orderChannel: any = null;
+    let messageChannel: any = null;
+    let orderRetry = 0;
+    let messageRetry = 0;
+    const maxRetries = 5;
+
+    const setupOrder = () => {
+      orderChannel = supabase
+        .channel('admin-orders')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'orders',
+          },
+          (payload) => {
+            if (payload.eventType === 'INSERT') {
+              createOrderNotification(payload.new as Order, 'new');
+            } else if (payload.eventType === 'UPDATE') {
+              const oldOrder = payload.old as Order;
+              const newOrder = payload.new as Order;
+              if ((newOrder as any).status === 'cancelled' && (oldOrder as any).status !== 'cancelled') {
+                createOrderNotification(newOrder, 'cancelled');
+              } else if ((newOrder as any).status !== (oldOrder as any).status) {
+                createOrderNotification(newOrder, 'status_change');
+              }
             }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            orderRetry = 0;
+          } else if (status === 'CHANNEL_ERROR' || status === 'CLOSED') {
+            if (orderRetry < maxRetries) {
+              orderRetry++;
+              const delay = Math.min(1000 * 2 ** orderRetry, 15000);
+              setTimeout(setupOrder, delay);
+            }
+          }
+        });
+    };
 
-    // Subscribe to new messages
-    const messageChannel = supabase
-      .channel('admin-messages')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'communication_logs',
-        },
-        (payload) => {
-          createMessageNotification(payload.new as Message);
-        }
-      )
-      .subscribe();
+    const setupMessages = () => {
+      messageChannel = supabase
+        .channel('admin-messages')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'communication_logs',
+            filter: 'sender_type=eq.customer',
+          },
+          (payload) => {
+            createMessageNotification(payload.new as Message);
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            messageRetry = 0;
+          } else if (status === 'CHANNEL_ERROR' || status === 'CLOSED') {
+            if (messageRetry < maxRetries) {
+              messageRetry++;
+              const delay = Math.min(1000 * 2 ** messageRetry, 15000);
+              setTimeout(setupMessages, delay);
+            }
+          }
+        });
+    };
+
+    setupOrder();
+    setupMessages();
+
+    // Re-initialize on tab visibility return if channels closed while sleeping
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        // no-op: channels will retry via backoff; ensure state is loaded
+        loadNotifications();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
-      supabase.removeChannel(orderChannel);
-      supabase.removeChannel(messageChannel);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      if (orderChannel) supabase.removeChannel(orderChannel);
+      if (messageChannel) supabase.removeChannel(messageChannel);
     };
   }, [user, loadNotifications, createOrderNotification, createMessageNotification]);
 

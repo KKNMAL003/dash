@@ -177,11 +177,11 @@ export default function ChatPage() {
   const [message, setMessage] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [isTyping, setIsTyping] = useState(false);
 
   const { data: customers = [], isLoading: customersLoading } = useCustomersWithChats(searchTerm);
   const { data: messages = [], isLoading: messagesLoading } = useCustomerMessages(selectedCustomer?.id);
   const sendMessageMutation = useSendMessage();
+  const isSending = sendMessageMutation.isPending;
   const markAsReadMutation = useMarkAsRead();
 
   // Memoized filtered customers
@@ -206,14 +206,7 @@ export default function ChatPage() {
     }
   }, [selectedCustomer?.id, markAsReadMutation]);
 
-  // Typing indicator simulation
-  useEffect(() => {
-    if (sendMessageMutation.isPending) {
-      setIsTyping(true);
-      const timer = setTimeout(() => setIsTyping(false), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [sendMessageMutation.isPending]);
+  // Removed timer-based typing indicator; we render based on mutation state
 
   const getUnreadCount = useCallback((customer: any) => {
     return customer.unread_count || 0;
@@ -420,7 +413,7 @@ export default function ChatPage() {
                       currentStaffId={profile?.id || null}
                     />
                   ))}
-                  {isTyping && (
+                  {isSending && (
                     <div className="flex justify-start">
                       <div className="bg-white text-gray-900 border border-gray-200 px-4 py-2 rounded-lg">
                         <div className="flex items-center space-x-1">

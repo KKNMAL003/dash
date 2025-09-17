@@ -139,7 +139,21 @@ async function cacheFirst(request, cacheName) {
 // Network First strategy - for API calls and HTML
 async function networkFirst(request, cacheName) {
   try {
-    const networkResponse = await fetch(request);
+    // Add a timeout to avoid hanging forever on flaky connections
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(() => abortController.abort(), 10000); // 10s timeout
+
+    // For Supabase and other API calls, always bypass cache with no-store
+    const reqInit = {
+      method: request.method,
+      headers: request.headers,
+      cache: 'no-store',
+      credentials: request.credentials,
+      signal: abortController.signal
+    };
+
+    const networkResponse = await fetch(request, reqInit);
+    clearTimeout(timeoutId);
     if (networkResponse.ok) {
       const cache = await caches.open(cacheName);
       // Clone the response before caching
@@ -148,6 +162,7 @@ async function networkFirst(request, cacheName) {
     }
     return networkResponse;
   } catch (error) {
+    // If this was an abort due to timeout, try cache fallback below
     const cachedResponse = await caches.match(request);
     if (cachedResponse) {
       return cachedResponse;
@@ -160,7 +175,7 @@ async function networkFirst(request, cacheName) {
 async function staleWhileRevalidate(request, cacheName) {
   const cachedResponse = await caches.match(request);
   
-  const fetchPromise = fetch(request).then(async (networkResponse) => {
+  const fetchPromise = fetch(request, { cache: 'no-store' }).then(async (networkResponse) => {
     if (networkResponse.ok) {
       const cache = await caches.open(cacheName);
       // Clone the response before caching

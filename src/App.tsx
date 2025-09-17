@@ -80,6 +80,11 @@ function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
+        {(() => {
+          // Expose queryClient for global error recovery hook
+          (window as any).__queryClient = queryClient;
+          return null;
+        })()}
         <AuthProvider>
           <Router future={{ v7_relativeSplatPath: true }}>
             <AppRoutes />

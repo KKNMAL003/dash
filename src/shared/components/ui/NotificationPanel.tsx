@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Bell, X, Check, Trash2, Package, MessageSquare, AlertCircle, Clock } from 'lucide-react';
 import { useNotifications, ClientNotification } from '../../hooks/useNotifications';
 import { formatDistanceToNow } from 'date-fns';
@@ -90,10 +91,25 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
     setSelectedNotifications(new Set());
   };
 
+  // Close on Escape and lock background scroll when open
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKey);
+    const original = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', handleKey);
+      document.body.style.overflow = original;
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-hidden">
+  const panel = (
+    <div className="fixed inset-0 z-50 overflow-hidden" role="dialog" aria-modal="true">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black bg-opacity-25" 
@@ -244,4 +260,7 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
       </div>
     </div>
   );
+
+  // Render in a portal to avoid stacking context issues
+  return createPortal(panel, document.body);
 }

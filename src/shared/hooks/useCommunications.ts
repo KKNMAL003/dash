@@ -20,7 +20,7 @@ export function useCustomersWithChats(searchTerm?: string) {
   useEffect(() => {
     let subscription: any = null;
     let retryCount = 0;
-    const maxRetries = 3;
+    const maxRetries = 5;
 
     const setupSubscription = () => {
       subscription = supabase
@@ -76,12 +76,21 @@ export function useCustomersWithChats(searchTerm?: string) {
           if (status === 'SUBSCRIBED') {
             console.log('Successfully subscribed to communication logs');
             retryCount = 0; // Reset retry count on successful subscription
+          } else if (status === 'CLOSED') {
+            // Attempt to resubscribe when channel closes (e.g., after being away)
+            if (retryCount < maxRetries) {
+              retryCount++;
+              const delay = Math.min(1000 * 2 ** retryCount, 15000);
+              console.log(`Channel closed. Retrying subscription in ${delay}ms...`);
+              setTimeout(setupSubscription, delay);
+            }
           } else if (status === 'CHANNEL_ERROR') {
             console.error('Error subscribing to communication logs');
             if (retryCount < maxRetries) {
               retryCount++;
-              console.log(`Retrying subscription (${retryCount}/${maxRetries})...`);
-              setTimeout(setupSubscription, 1000 * retryCount); // Exponential backoff
+              const delay = Math.min(1000 * 2 ** retryCount, 15000);
+              console.log(`Retrying subscription (${retryCount}/${maxRetries}) in ${delay}ms...`);
+              setTimeout(setupSubscription, delay); // Exponential backoff with cap
             }
           }
         });
@@ -119,7 +128,7 @@ export function useCustomerMessages(customerId: string) {
 
     let subscription: any = null;
     let retryCount = 0;
-    const maxRetries = 3;
+    const maxRetries = 5;
 
     const setupSubscription = () => {
       subscription = supabase
@@ -168,12 +177,20 @@ export function useCustomerMessages(customerId: string) {
           if (status === 'SUBSCRIBED') {
             console.log(`Successfully subscribed to messages for customer ${customerId}`);
             retryCount = 0; // Reset retry count on successful subscription
+          } else if (status === 'CLOSED') {
+            if (retryCount < maxRetries) {
+              retryCount++;
+              const delay = Math.min(1000 * 2 ** retryCount, 15000);
+              console.log(`Message channel closed for ${customerId}. Retrying in ${delay}ms...`);
+              setTimeout(setupSubscription, delay);
+            }
           } else if (status === 'CHANNEL_ERROR') {
             console.error(`Error subscribing to messages for customer ${customerId}`);
             if (retryCount < maxRetries) {
               retryCount++;
-              console.log(`Retrying message subscription for customer ${customerId} (${retryCount}/${maxRetries})...`);
-              setTimeout(setupSubscription, 1000 * retryCount); // Exponential backoff
+              const delay = Math.min(1000 * 2 ** retryCount, 15000);
+              console.log(`Retrying message subscription for customer ${customerId} (${retryCount}/${maxRetries}) in ${delay}ms...`);
+              setTimeout(setupSubscription, delay); // Exponential backoff with cap
             }
           }
         });
