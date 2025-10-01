@@ -2,10 +2,8 @@ const CACHE_NAME = 'onolo-admin-v1';
 const STATIC_CACHE_NAME = 'onolo-admin-static-v1';
 const DYNAMIC_CACHE_NAME = 'onolo-admin-dynamic-v1';
 
-// Assets to cache immediately
+// Assets to cache immediately (avoid caching HTML to ensure fresh shell)
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
   '/favicon.ico',
   '/favicon.svg',
   '/favicon-96x96.png',
@@ -76,6 +74,11 @@ async function handleRequest(request) {
   const url = new URL(request.url);
   
   try {
+    // Skip caching for Supabase - always fetch fresh
+    if (url.hostname.includes('supabase')) {
+      return await fetch(request);
+    }
+    
     // Strategy 1: Static assets (JS, CSS, images) - Cache First
     if (isStaticAsset(url)) {
       return await cacheFirst(request, STATIC_CACHE_NAME);

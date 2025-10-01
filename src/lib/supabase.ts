@@ -13,6 +13,16 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
     autoRefreshToken: true,
     persistSession: true,
   },
+  // Strengthen realtime reliability
+  realtime: {
+    // Keep the connection alive when the tab is backgrounded via a worker heartbeat
+    worker: true,
+    // Send heartbeats more frequently to detect broken connections quickly
+    heartbeatIntervalMs: 10000,
+    // Exponential backoff with cap and jitter for reconnects
+    reconnectAfterMs: (tries: number) =>
+      Math.min(1000 * 2 ** tries, 15000) + Math.floor(Math.random() * 1000),
+  },
 });
 
 // Types for our application

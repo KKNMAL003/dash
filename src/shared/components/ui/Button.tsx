@@ -53,10 +53,20 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
         sizes[size],
         className
       )}
+      // Default to type="button" to avoid unintended form submissions
+      type={(props as any).type ?? 'button'}
       disabled={disabled || isLoading}
       aria-label={ariaLabel}
       aria-describedby={ariaDescribedBy}
       aria-busy={isLoading}
+      // Mitigate hover flicker and improve interaction responsiveness on some GPUs/browsers
+      style={{
+        backfaceVisibility: 'hidden',
+        transform: 'translateZ(0)',
+        willChange: 'background-color, color, border-color, box-shadow',
+        WebkitTapHighlightColor: 'transparent',
+        ...(props as any).style,
+      }}
       {...(isLoading && { 'aria-describedby': `${ariaDescribedBy || ''} ${loadingId}`.trim() })}
       {...props}
     >

@@ -135,7 +135,7 @@ export function useNotifications() {
     });
   }, [addNotification]);
 
-  // Set up real-time subscriptions with retries
+  // Set up real-time subscriptions with robust retries and rebound
   useEffect(() => {
     if (!user) return;
 
@@ -143,12 +143,33 @@ export function useNotifications() {
 
     let orderChannel: any = null;
     let messageChannel: any = null;
-    let orderRetry = 0;
-    let messageRetry = 0;
-    const maxRetries = 5;
 
-    const setupOrder = () => {
-      orderChannel = supabase
+    const subscribeWithRetry = (createChannel: () => any) => {
+      let tries = 0;
+      const maxDelay = 15000;
+      let channel: any = null;
+
+      const start = () => {
+        const jitter = () => Math.floor(Math.random() * 1000);
+        channel = createChannel().subscribe((status: any) => {
+          if (status === 'SUBSCRIBED') {
+            tries = 0;
+          } else if (status === 'CHANNEL_ERROR' || status === 'CLOSED') {
+            const delay = Math.min(1000 * 2 ** ++tries, maxDelay) + jitter();
+            setTimeout(() => {
+              if (channel) supabase.removeChannel(channel);
+              start();
+            }, delay);
+          }
+        });
+        return channel;
+      };
+
+      return start();
+    };
+
+    const setupOrder = () =>
+      supabase
         .channel('admin-orders')
         .on(
           'postgres_changes',
@@ -170,22 +191,10 @@ export function useNotifications() {
               }
             }
           }
-        )
-        .subscribe((status) => {
-          if (status === 'SUBSCRIBED') {
-            orderRetry = 0;
-          } else if (status === 'CHANNEL_ERROR' || status === 'CLOSED') {
-            if (orderRetry < maxRetries) {
-              orderRetry++;
-              const delay = Math.min(1000 * 2 ** orderRetry, 15000);
-              setTimeout(setupOrder, delay);
-            }
-          }
-        });
-    };
+        );
 
-    const setupMessages = () => {
-      messageChannel = supabase
+    const setupMessages = () =>
+      supabase
         .channel('admin-messages')
         .on(
           'postgres_changes',
@@ -198,33 +207,27 @@ export function useNotifications() {
           (payload) => {
             createMessageNotification(payload.new as Message);
           }
-        )
-        .subscribe((status) => {
-          if (status === 'SUBSCRIBED') {
-            messageRetry = 0;
-          } else if (status === 'CHANNEL_ERROR' || status === 'CLOSED') {
-            if (messageRetry < maxRetries) {
-              messageRetry++;
-              const delay = Math.min(1000 * 2 ** messageRetry, 15000);
-              setTimeout(setupMessages, delay);
-            }
-          }
-        });
+        );
+
+    orderChannel = subscribeWithRetry(setupOrder);
+    messageChannel = subscribeWithRetry(setupMessages);
+
+    const rebound = () => {
+      if (orderChannel) supabase.removeChannel(orderChannel);
+      if (messageChannel) supabase.removeChannel(messageChannel);
+      orderChannel = subscribeWithRetry(setupOrder);
+      messageChannel = subscribeWithRetry(setupMessages);
+      loadNotifications();
     };
 
-    setupOrder();
-    setupMessages();
-
-    // Re-initialize on tab visibility return if channels closed while sleeping
+    window.addEventListener('online', rebound);
     const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        // no-op: channels will retry via backoff; ensure state is loaded
-        loadNotifications();
-      }
+      if (document.visibilityState === 'visible') rebound();
     };
     document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
+      window.removeEventListener('online', rebound);
       document.removeEventListener('visibilitychange', handleVisibility);
       if (orderChannel) supabase.removeChannel(orderChannel);
       if (messageChannel) supabase.removeChannel(messageChannel);

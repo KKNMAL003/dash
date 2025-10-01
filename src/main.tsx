@@ -3,7 +3,10 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
-import './utils/notificationTest.ts' // Import test utilities
+// Dev-only: notification testing utilities
+if (import.meta.env.DEV) {
+  import('./utils/notificationTest.ts');
+}
 
 // Remove initial loading spinner
 const removeInitialLoader = () => {
@@ -13,31 +16,42 @@ const removeInitialLoader = () => {
   }
 };
 
-// Register service worker
+// Register/unregister service worker depending on environment
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then((registration) => {
-        console.log('SW registered: ', registration);
-        
-        // Check for updates
-        registration.addEventListener('updatefound', () => {
-          const newWorker = registration.installing;
-          if (newWorker) {
-            newWorker.addEventListener('statechange', () => {
-              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                // New content is available, prompt user to refresh
-                if (confirm('New version available! Refresh to update?')) {
-                  window.location.reload();
+    if (import.meta.env.PROD) {
+      navigator.serviceWorker.register('/sw.js')
+        .then((registration) => {
+          console.log('SW registered: ', registration);
+          registration.addEventListener('updatefound', () => {
+            const newWorker = registration.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  if (confirm('New version available! Refresh to update?')) {
+                    window.location.reload();
+                  }
                 }
-              }
-            });
-          }
+              });
+            }
+          });
+        })
+        .catch((registrationError) => {
+          console.log('SW registration failed: ', registrationError);
         });
-      })
-      .catch((registrationError) => {
-        console.log('SW registration failed: ', registrationError);
+    } else {
+      // In dev: ensure no service workers control the page and clear app caches to avoid interference
+      navigator.serviceWorker.getRegistrations?.().then((regs) => {
+        regs.forEach((r) => r.unregister());
       });
+      if ('caches' in window) {
+        caches.keys().then((keys) => {
+          keys
+            .filter((k) => k.startsWith('onolo-admin-'))
+            .forEach((k) => caches.delete(k));
+        });
+      }
+    }
   });
 }
 
@@ -53,9 +67,13 @@ const root = ReactDOM.createRoot(rootElement);
 // Render with error boundary for hydration
 try {
   root.render(
-    <React.StrictMode>
+    import.meta.env.PROD ? (
+      <React.StrictMode>
+        <App />
+      </React.StrictMode>
+    ) : (
       <App />
-    </React.StrictMode>
+    )
   );
   
   // Remove initial loader after successful render
@@ -66,9 +84,13 @@ try {
   // Fallback: clear the root and re-render
   rootElement.innerHTML = '';
   root.render(
-    <React.StrictMode>
+    import.meta.env.PROD ? (
+      <React.StrictMode>
+        <App />
+      </React.StrictMode>
+    ) : (
       <App />
-    </React.StrictMode>
+    )
   );
   
   removeInitialLoader();
@@ -88,6 +110,15 @@ window.addEventListener('unhandledrejection', (event) => {
   if (event.reason?.message?.includes('ChunkLoadError') ||
       event.reason?.message?.includes('Loading chunk')) {
     console.log('Chunk loading error in promise, reloading...');
+    window.location.reload();
+  }
+});
+
+// BFCache safeguard: Force reload when page is restored from BFCache
+// This prevents stale auth tokens and hung network connections
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted) {
+    console.log('Page restored from BFCache, reloading to ensure fresh state...');
     window.location.reload();
   }
 });

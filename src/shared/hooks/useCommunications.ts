@@ -16,93 +16,82 @@ export function useCustomersWithChats(searchTerm?: string) {
     refetchOnReconnect: true,
   });
 
-  // Set up real-time subscription for communication logs with better error handling
+  // Set up real-time subscription for communication logs with robust retry & rebound
   useEffect(() => {
-    let subscription: any = null;
-    let retryCount = 0;
-    const maxRetries = 5;
+    let channel: any = null;
 
-    const setupSubscription = () => {
-      subscription = supabase
-        .channel('communication-logs-global')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'communication_logs',
-          },
-          (payload) => {
-            console.log('Communication log update received:', payload);
-            
-            // Optimistic updates for better UX
-            if (payload.eventType === 'INSERT' && payload.new) {
-              const newMessage = payload.new as any;
-              if (newMessage.customer_id) {
-                // Update customers list optimistically
-                queryClient.setQueryData(['customers-with-chats'], (old: any) => {
-                  if (!old) return old;
-                  
-                  return old.map((customer: any) => {
-                    if (customer.id === newMessage.customer_id) {
-                      return {
-                        ...customer,
-                        latest_message: newMessage,
-                        unread_count: newMessage.sender_type === 'customer' 
-                          ? (customer.unread_count || 0) + 1 
-                          : customer.unread_count || 0
-                      };
-                    }
-                    return customer;
+    const start = () => {
+      let tries = 0;
+      const maxDelay = 15000;
+      const jitter = () => Math.floor(Math.random() * 1000);
+
+      const createChannel = () =>
+        supabase
+          .channel('communication-logs-global')
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'communication_logs' },
+            (payload) => {
+              if (payload.eventType === 'INSERT' && payload.new) {
+                const newMessage = payload.new as any;
+                if (newMessage.customer_id) {
+                  queryClient.setQueryData(['customers-with-chats'], (old: any) => {
+                    if (!old) return old;
+                    return old.map((customer: any) => {
+                      if (customer.id === newMessage.customer_id) {
+                        return {
+                          ...customer,
+                          latest_message: newMessage,
+                          unread_count: newMessage.sender_type === 'customer'
+                            ? (customer.unread_count || 0) + 1
+                            : customer.unread_count || 0,
+                        };
+                      }
+                      return customer;
+                    });
                   });
-                });
+                }
+              }
+              queryClient.invalidateQueries({ queryKey: ['customers-with-chats'] });
+              if (payload.new && (payload.new as any).customer_id) {
+                queryClient.invalidateQueries({ queryKey: ['messages', (payload.new as any).customer_id] });
+              }
+              if (payload.old && (payload.old as any).customer_id) {
+                queryClient.invalidateQueries({ queryKey: ['messages', (payload.old as any).customer_id] });
               }
             }
+          )
+          .subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+              tries = 0;
+            } else if (status === 'CHANNEL_ERROR' || status === 'CLOSED') {
+              const delay = Math.min(1000 * 2 ** ++tries, maxDelay) + jitter();
+              setTimeout(() => {
+                if (channel) channel.unsubscribe();
+                channel = createChannel();
+              }, delay);
+            }
+          });
 
-            // Invalidate queries for fresh data
-            queryClient.invalidateQueries({ queryKey: ['customers-with-chats'] });
-
-            // Also invalidate specific customer messages if we know the customer_id
-            if (payload.new && (payload.new as any).customer_id) {
-              queryClient.invalidateQueries({ queryKey: ['messages', (payload.new as any).customer_id] });
-            }
-            if (payload.old && (payload.old as any).customer_id) {
-              queryClient.invalidateQueries({ queryKey: ['messages', (payload.old as any).customer_id] });
-            }
-          }
-        )
-        .subscribe((status) => {
-          console.log('Communication subscription status:', status);
-          if (status === 'SUBSCRIBED') {
-            console.log('Successfully subscribed to communication logs');
-            retryCount = 0; // Reset retry count on successful subscription
-          } else if (status === 'CLOSED') {
-            // Attempt to resubscribe when channel closes (e.g., after being away)
-            if (retryCount < maxRetries) {
-              retryCount++;
-              const delay = Math.min(1000 * 2 ** retryCount, 15000);
-              console.log(`Channel closed. Retrying subscription in ${delay}ms...`);
-              setTimeout(setupSubscription, delay);
-            }
-          } else if (status === 'CHANNEL_ERROR') {
-            console.error('Error subscribing to communication logs');
-            if (retryCount < maxRetries) {
-              retryCount++;
-              const delay = Math.min(1000 * 2 ** retryCount, 15000);
-              console.log(`Retrying subscription (${retryCount}/${maxRetries}) in ${delay}ms...`);
-              setTimeout(setupSubscription, delay); // Exponential backoff with cap
-            }
-          }
-        });
+      channel = createChannel();
     };
 
-    setupSubscription();
+    start();
+
+    const rebound = () => {
+      if (channel) channel.unsubscribe();
+      start();
+    };
+    window.addEventListener('online', rebound);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') rebound();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
-      console.log('Unsubscribing from communication logs');
-      if (subscription) {
-        subscription.unsubscribe();
-      }
+      window.removeEventListener('online', rebound);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      if (channel) channel.unsubscribe();
     };
   }, [queryClient]);
 
@@ -122,87 +111,71 @@ export function useCustomerMessages(customerId: string) {
     refetchOnReconnect: true,
   });
 
-  // Set up real-time subscription for new messages with better error handling
+  // Set up real-time subscription for new messages with robust retry & rebound
   useEffect(() => {
     if (!customerId) return;
 
-    let subscription: any = null;
-    let retryCount = 0;
-    const maxRetries = 5;
-
-    const setupSubscription = () => {
-      subscription = supabase
-        .channel(`messages-${customerId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'communication_logs',
-            filter: `customer_id=eq.${customerId}`,
-          },
-          (payload) => {
-            console.log('Message update received for customer:', customerId, payload);
-            
-            // Optimistic updates for better UX
-            if (payload.eventType === 'INSERT' && payload.new) {
-              const newMessage = payload.new as any;
-              queryClient.setQueryData(['messages', customerId], (old: any) => {
-                if (!old) return [newMessage];
-                
-                // Check if message already exists to avoid duplicates
-                const exists = old.some((msg: any) => msg.id === newMessage.id);
-                if (exists) return old;
-                
-                return [...old, newMessage];
-              });
-            } else if (payload.eventType === 'UPDATE' && payload.new) {
-              const updatedMessage = payload.new as any;
-              queryClient.setQueryData(['messages', customerId], (old: any) => {
-                if (!old) return old;
-                
-                return old.map((msg: any) => 
-                  msg.id === updatedMessage.id ? updatedMessage : msg
-                );
-              });
+    let channel: any = null;
+    const start = () => {
+      let tries = 0;
+      const maxDelay = 15000;
+      const jitter = () => Math.floor(Math.random() * 1000);
+      const createChannel = () =>
+        supabase
+          .channel(`messages-${customerId}`)
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'communication_logs', filter: `customer_id=eq.${customerId}` },
+            (payload) => {
+              if (payload.eventType === 'INSERT' && payload.new) {
+                const newMessage = payload.new as any;
+                queryClient.setQueryData(['messages', customerId], (old: any) => {
+                  if (!old) return [newMessage];
+                  const exists = old.some((msg: any) => msg.id === newMessage.id);
+                  if (exists) return old;
+                  return [...old, newMessage];
+                });
+              } else if (payload.eventType === 'UPDATE' && payload.new) {
+                const updatedMessage = payload.new as any;
+                queryClient.setQueryData(['messages', customerId], (old: any) => {
+                  if (!old) return old;
+                  return old.map((msg: any) => (msg.id === updatedMessage.id ? updatedMessage : msg));
+                });
+              }
+              queryClient.invalidateQueries({ queryKey: ['messages', customerId] });
+              queryClient.invalidateQueries({ queryKey: ['customers-with-chats'] });
             }
-
-            // Invalidate queries for fresh data
-            queryClient.invalidateQueries({ queryKey: ['messages', customerId] });
-            queryClient.invalidateQueries({ queryKey: ['customers-with-chats'] });
-          }
-        )
-        .subscribe((status) => {
-          console.log(`Message subscription status for customer ${customerId}:`, status);
-          if (status === 'SUBSCRIBED') {
-            console.log(`Successfully subscribed to messages for customer ${customerId}`);
-            retryCount = 0; // Reset retry count on successful subscription
-          } else if (status === 'CLOSED') {
-            if (retryCount < maxRetries) {
-              retryCount++;
-              const delay = Math.min(1000 * 2 ** retryCount, 15000);
-              console.log(`Message channel closed for ${customerId}. Retrying in ${delay}ms...`);
-              setTimeout(setupSubscription, delay);
+          )
+          .subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+              tries = 0;
+            } else if (status === 'CHANNEL_ERROR' || status === 'CLOSED') {
+              const delay = Math.min(1000 * 2 ** ++tries, maxDelay) + jitter();
+              setTimeout(() => {
+                if (channel) channel.unsubscribe();
+                channel = createChannel();
+              }, delay);
             }
-          } else if (status === 'CHANNEL_ERROR') {
-            console.error(`Error subscribing to messages for customer ${customerId}`);
-            if (retryCount < maxRetries) {
-              retryCount++;
-              const delay = Math.min(1000 * 2 ** retryCount, 15000);
-              console.log(`Retrying message subscription for customer ${customerId} (${retryCount}/${maxRetries}) in ${delay}ms...`);
-              setTimeout(setupSubscription, delay); // Exponential backoff with cap
-            }
-          }
-        });
+          });
+      channel = createChannel();
     };
 
-    setupSubscription();
+    start();
+
+    const rebound = () => {
+      if (channel) channel.unsubscribe();
+      start();
+    };
+    window.addEventListener('online', rebound);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') rebound();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
-      console.log(`Unsubscribing from messages for customer ${customerId}`);
-      if (subscription) {
-        subscription.unsubscribe();
-      }
+      window.removeEventListener('online', rebound);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      if (channel) channel.unsubscribe();
     };
   }, [customerId, queryClient]);
 
