@@ -3,6 +3,9 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
+// Feature flag for service worker in production
+const ENABLE_SW = import.meta.env.VITE_ENABLE_SW === 'true';
+const SW_VERSION = import.meta.env.VITE_SW_VERSION || '1';
 // Dev-only: notification testing utilities
 if (import.meta.env.DEV) {
   import('./utils/notificationTest.ts');
@@ -19,8 +22,8 @@ const removeInitialLoader = () => {
 // Register/unregister service worker depending on environment
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    if (import.meta.env.PROD) {
-      navigator.serviceWorker.register('/sw.js')
+    if (import.meta.env.PROD && ENABLE_SW) {
+      navigator.serviceWorker.register(`/sw.js?v=${SW_VERSION}`)
         .then((registration) => {
           console.log('SW registered: ', registration);
           registration.addEventListener('updatefound', () => {
@@ -40,7 +43,7 @@ if ('serviceWorker' in navigator) {
           console.log('SW registration failed: ', registrationError);
         });
     } else {
-      // In dev: ensure no service workers control the page and clear app caches to avoid interference
+      // In dev or when disabled: ensure no service workers control the page and clear app caches to avoid interference
       navigator.serviceWorker.getRegistrations?.().then((regs) => {
         regs.forEach((r) => r.unregister());
       });

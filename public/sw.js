@@ -1,6 +1,7 @@
-const CACHE_NAME = 'onolo-admin-v1';
-const STATIC_CACHE_NAME = 'onolo-admin-static-v1';
-const DYNAMIC_CACHE_NAME = 'onolo-admin-dynamic-v1';
+// Version from registration query param (e.g., /sw.js?v=2)
+const VERSION = new URL(self.location.href).searchParams.get('v') || '1';
+const STATIC_CACHE_NAME = `onolo-admin-static-v${VERSION}`;
+const DYNAMIC_CACHE_NAME = `onolo-admin-dynamic-v${VERSION}`;
 
 // Assets to cache immediately (avoid caching HTML to ensure fresh shell)
 const STATIC_ASSETS = [
@@ -89,9 +90,9 @@ async function handleRequest(request) {
       return await networkFirst(request, DYNAMIC_CACHE_NAME);
     }
     
-    // Strategy 3: HTML pages - Network First with fallback
+    // Strategy 3: HTML pages - always fetch fresh (don't cache HTML)
     if (isHtmlRequest(request)) {
-      return await networkFirst(request, DYNAMIC_CACHE_NAME);
+      return fetch(request, { cache: 'no-store' });
     }
     
     // Strategy 4: Other resources - Stale While Revalidate
