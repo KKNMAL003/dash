@@ -30,12 +30,31 @@ export const queryClient = new QueryClient({
   mutationCache,
   defaultOptions: {
     queries: {
-      // Cache data for 5 minutes by default
-      staleTime: 5 * 60 * 1000,
-      
-      // Keep data in cache for 10 minutes after component unmounts
-      gcTime: 10 * 60 * 1000,
-      
+      // Increase stale time for static data (10 minutes)
+      staleTime: 10 * 60 * 1000,
+
+      // Longer cache time (30 minutes)
+      gcTime: 30 * 60 * 1000,
+
+      // Smarter refetch strategy based on data type
+      refetchOnWindowFocus: (query) => {
+        // Only refetch critical data on focus
+        return query.queryKey.includes('dashboard') || query.queryKey.includes('orders');
+      },
+
+      // Background refetch for critical data only
+      refetchInterval: (query) => {
+        if (query.queryKey.includes('dashboard')) return 30 * 1000; // 30 seconds
+        if (query.queryKey.includes('orders')) return 60 * 1000; // 1 minute
+        return false; // Don't auto-refetch other data
+      },
+
+      // Refetch on mount only for stale data
+      refetchOnMount: (query) => {
+        // Don't refetch if data is fresh (less than 5 minutes old)
+        return Date.now() - (query.state.dataUpdatedAt || 0) > 5 * 60 * 1000;
+      },
+
       // Retry failed requests 3 times with exponential backoff
       retry: (failureCount, error: any) => {
         // Don't retry on 4xx errors (client errors)
@@ -49,18 +68,14 @@ export const queryClient = new QueryClient({
         }
         return failureCount < 3;
       },
-      
+
       // Exponential backoff for retries
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-      
-      // Refetch on window focus for critical data
-      refetchOnWindowFocus: true,
-      
-      // Refetch when network reconnects
-      refetchOnReconnect: true,
-      
-      // Don't refetch on mount if data is fresh
-      refetchOnMount: true,
+
+      // Refetch when network reconnects for critical data
+      refetchOnReconnect: (query) => {
+        return query.queryKey.includes('dashboard') || query.queryKey.includes('orders');
+      },
     },
     mutations: {
       // Retry mutations once
@@ -142,6 +157,29 @@ export const cacheUtils = {
       queryFn: () => import('../services/api').then(({ apiClient }) => apiClient.analytics.getDashboardStats()),
       staleTime: 2 * 60 * 1000, // 2 minutes
     });
+  },
+
+  // Prefetch next likely pages (simplified - route splitting handles lazy loading)
+  prefetchNextPage: (currentPath: string) => {
+    // This is handled by React.lazy() in App.tsx
+    // No need for manual prefetching as route-based code splitting is already implemented
+    console.log('Prefetching next pages for:', currentPath);
+  },
+
+  // Prefetch critical data for better UX
+  prefetchCriticalData: () => {
+    return Promise.all([
+      queryClient.prefetchQuery({
+        queryKey: queryKeys.dashboard.stats(),
+        queryFn: () => import('../services/api').then(({ apiClient }) => apiClient.analytics.getDashboardStats()),
+        staleTime: 5 * 60 * 1000, // 5 minutes
+      }),
+      queryClient.prefetchQuery({
+        queryKey: queryKeys.dashboard.recentOrders(4),
+        queryFn: () => import('../services/api').then(({ apiClient }) => apiClient.analytics.getRecentOrders(4)),
+        staleTime: 2 * 60 * 1000, // 2 minutes
+      }),
+    ]);
   },
 };
 

@@ -5,7 +5,7 @@ import App from './App.tsx'
 import './index.css'
 // Feature flag for service worker in production
 const ENABLE_SW = import.meta.env.VITE_ENABLE_SW === 'true';
-const SW_VERSION = import.meta.env.VITE_SW_VERSION || '1';
+const SW_VERSION = import.meta.env.VITE_SW_VERSION || Date.now().toString();
 // Dev-only: notification testing utilities
 if (import.meta.env.DEV) {
   import('./utils/notificationTest.ts');
@@ -19,6 +19,17 @@ const removeInitialLoader = () => {
   }
 };
 
+// Force cache invalidation in development
+if (import.meta.env.DEV) {
+  // Force reload if page was restored from cache
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+      console.log('Page restored from BFCache, reloading...');
+      window.location.reload();
+    }
+  });
+}
+
 // Register/unregister service worker depending on environment
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -26,14 +37,19 @@ if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register(`/sw.js?v=${SW_VERSION}`)
         .then((registration) => {
           console.log('SW registered: ', registration);
+          
+          // Check for updates every 30 seconds in production
+          setInterval(() => {
+            registration.update();
+          }, 30000);
+          
           registration.addEventListener('updatefound', () => {
             const newWorker = registration.installing;
             if (newWorker) {
               newWorker.addEventListener('statechange', () => {
                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  if (confirm('New version available! Refresh to update?')) {
-                    window.location.reload();
-                  }
+                  // Auto-reload for critical updates
+                  window.location.reload();
                 }
               });
             }

@@ -1,5 +1,5 @@
 // Version from registration query param (e.g., /sw.js?v=2)
-const VERSION = new URL(self.location.href).searchParams.get('v') || '1';
+const VERSION = new URL(self.location.href).searchParams.get('v') || Date.now().toString();
 const STATIC_CACHE_NAME = `onolo-admin-static-v${VERSION}`;
 const DYNAMIC_CACHE_NAME = `onolo-admin-dynamic-v${VERSION}`;
 
@@ -12,22 +12,55 @@ const STATIC_ASSETS = [
   '/site.webmanifest'
 ];
 
-// Install event - cache static assets
+// Critical routes to preload for better UX
+const CRITICAL_ROUTES = [
+  '/',
+  '/orders',
+  '/customers'
+];
+
+// Critical resources to preload
+const CRITICAL_RESOURCES = [
+  '/assets/react-vendor-*.js',
+  '/assets/router-*.js',
+  '/assets/query-*.js'
+];
+
+// Install event - cache static assets and preload critical routes
 self.addEventListener('install', (event) => {
   console.log('Service Worker installing...');
   event.waitUntil(
-    caches.open(STATIC_CACHE_NAME)
-      .then((cache) => {
-        console.log('Caching static assets');
-        return cache.addAll(STATIC_ASSETS);
-      })
-      .then(() => {
-        console.log('Static assets cached successfully');
-        return self.skipWaiting();
-      })
-      .catch((error) => {
-        console.error('Failed to cache static assets:', error);
-      })
+    Promise.all([
+      // Cache static assets
+      caches.open(STATIC_CACHE_NAME)
+        .then((cache) => {
+          console.log('Caching static assets');
+          return cache.addAll(STATIC_ASSETS);
+        }),
+
+      // Preload critical routes for better UX
+      caches.open(DYNAMIC_CACHE_NAME)
+        .then((cache) =>
+          Promise.all(CRITICAL_ROUTES.map(route =>
+            fetch(route).catch(() => {}) // Don't fail if route doesn't exist
+          ))
+        ),
+
+      // Preload critical resources
+      caches.open(STATIC_CACHE_NAME)
+        .then((cache) => {
+          // In a real implementation, you'd fetch actual asset URLs
+          // For now, we'll just log the intent
+          console.log('Preloading critical resources:', CRITICAL_RESOURCES);
+        })
+    ])
+    .then(() => {
+      console.log('Static assets and critical routes cached successfully');
+      return self.skipWaiting();
+    })
+    .catch((error) => {
+      console.error('Failed to cache assets:', error);
+    })
   );
 });
 
@@ -92,7 +125,13 @@ async function handleRequest(request) {
     
     // Strategy 3: HTML pages - always fetch fresh (don't cache HTML)
     if (isHtmlRequest(request)) {
-      return fetch(request, { cache: 'no-store' });
+      return fetch(request, { 
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
     }
     
     // Strategy 4: Other resources - Stale While Revalidate

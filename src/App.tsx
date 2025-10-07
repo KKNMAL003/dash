@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
@@ -8,16 +8,25 @@ import { useAuth } from './contexts/AuthContext';
 import { supabase } from './lib/supabase';
 import { ErrorBoundary } from './shared/components/ui';
 import { useGlobalErrorHandler, useNetworkStatus } from './shared/hooks/useErrorRecovery';
+import { LoadingSpinner } from './shared/components/ui';
 import LoginPage from './pages/LoginPage';
 import DashboardLayout from './components/layout/DashboardLayout';
-import DashboardPage from './pages/DashboardPage';
-import OrdersPage from './pages/OrdersPage';
-import CustomersPage from './pages/CustomersPage';
-import ChatPage from './pages/ChatPage';
 
-import DeliveryPage from './pages/DeliveryPage';
-import AnalyticsPage from './pages/AnalyticsPage';
-import SettingsPage from './pages/SettingsPage';
+// Lazy load all pages for better performance
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const OrdersPage = lazy(() => import('./pages/OrdersPage'));
+const CustomersPage = lazy(() => import('./pages/CustomersPage'));
+const ChatPage = lazy(() => import('./pages/ChatPage'));
+const DeliveryPage = lazy(() => import('./pages/DeliveryPage'));
+const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+
+// Loading component for Suspense fallback
+const PageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center">
+    <LoadingSpinner size="lg" />
+  </div>
+);
 
 
 
@@ -55,14 +64,42 @@ function AppRoutes() {
             <DashboardLayout>
               <ErrorBoundary>
                 <Routes>
-                  <Route path="/" element={<DashboardPage />} />
-                  <Route path="/orders" element={<OrdersPage />} />
-                  <Route path="/customers" element={<CustomersPage />} />
-                  <Route path="/chat" element={<ChatPage />} />
+                  <Route path="/" element={
+                    <Suspense fallback={<PageLoader />}>
+                      <DashboardPage />
+                    </Suspense>
+                  } />
+                  <Route path="/orders" element={
+                    <Suspense fallback={<PageLoader />}>
+                      <OrdersPage />
+                    </Suspense>
+                  } />
+                  <Route path="/customers" element={
+                    <Suspense fallback={<PageLoader />}>
+                      <CustomersPage />
+                    </Suspense>
+                  } />
+                  <Route path="/chat" element={
+                    <Suspense fallback={<PageLoader />}>
+                      <ChatPage />
+                    </Suspense>
+                  } />
 
-                  <Route path="/delivery" element={<DeliveryPage />} />
-                  <Route path="/analytics" element={<AnalyticsPage />} />
-                  <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="/delivery" element={
+                    <Suspense fallback={<PageLoader />}>
+                      <DeliveryPage />
+                    </Suspense>
+                  } />
+                  <Route path="/analytics" element={
+                    <Suspense fallback={<PageLoader />}>
+                      <AnalyticsPage />
+                    </Suspense>
+                  } />
+                  <Route path="/settings" element={
+                    <Suspense fallback={<PageLoader />}>
+                      <SettingsPage />
+                    </Suspense>
+                  } />
                 </Routes>
               </ErrorBoundary>
             </DashboardLayout>
@@ -163,7 +200,7 @@ function App() {
           return null;
         })()}
         <AuthProvider>
-          <Router future={{ v7_relativeSplatPath: true }}>
+          <Router future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
             <AppRoutes />
             <Toaster 
               position="top-right"

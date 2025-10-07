@@ -67,20 +67,83 @@ export function debounce<T extends (...args: any[]) => any>(
 export function createLazyComponent<T extends React.ComponentType<any>>(
   importFn: () => Promise<{ default: T }>
 ) {
-  return React.lazy(importFn);
+return React.lazy(importFn);
 }
 
-// Image optimization utility
-export function optimizeImageUrl(url: string, width?: number, height?: number, quality = 80): string {
+// Chart library lazy loading utilities
+export const lazyLoadRecharts = {
+  BarChart: React.lazy(() =>
+    import('recharts').then(mod => ({ default: mod.BarChart }))
+  ),
+  LineChart: React.lazy(() =>
+    import('recharts').then(mod => ({ default: mod.LineChart }))
+  ),
+  AreaChart: React.lazy(() =>
+    import('recharts').then(mod => ({ default: mod.AreaChart }))
+  ),
+  PieChart: React.lazy(() =>
+    import('recharts').then(mod => ({ default: mod.PieChart }))
+  ),
+  ComposedChart: React.lazy(() =>
+    import('recharts').then(mod => ({ default: mod.ComposedChart }))
+  ),
+  Bar: React.lazy(() =>
+    import('recharts').then(mod => ({ default: mod.Bar }))
+  ),
+  Line: React.lazy(() =>
+    import('recharts').then(mod => ({ default: mod.Line }))
+  ),
+  Area: React.lazy(() =>
+    import('recharts').then(mod => ({ default: mod.Area }))
+  ),
+  XAxis: React.lazy(() =>
+    import('recharts').then(mod => ({ default: mod.XAxis }))
+  ),
+  YAxis: React.lazy(() =>
+    import('recharts').then(mod => ({ default: mod.YAxis }))
+  ),
+  CartesianGrid: React.lazy(() =>
+    import('recharts').then(mod => ({ default: mod.CartesianGrid }))
+  ),
+  Tooltip: React.lazy(() =>
+    import('recharts').then(mod => ({ default: mod.Tooltip }))
+  ),
+  Legend: React.lazy(() =>
+    import('recharts').then(mod => ({ default: mod.Legend }))
+  ),
+  ResponsiveContainer: React.lazy(() =>
+    import('recharts').then(mod => ({ default: mod.ResponsiveContainer }))
+  ),
+};
+
+// Image optimization utility with WebP support
+export function optimizeImageUrl(url: string, width?: number, height?: number, quality = 80, format = 'webp'): string {
   // This is a placeholder - in a real app you'd integrate with a service like Cloudinary
   const params = new URLSearchParams();
   if (width) params.set('w', width.toString());
   if (height) params.set('h', height.toString());
   params.set('q', quality.toString());
-  
-  return url.includes('?') 
+  params.set('f', format);
+
+  return url.includes('?')
     ? `${url}&${params.toString()}`
     : `${url}?${params.toString()}`;
+}
+
+// WebP detection and responsive image support
+export function getOptimizedImageSrc(src: string, fallback = src): string {
+  if (typeof window !== 'undefined' && 'WebP' in window) {
+    return optimizeImageUrl(src, undefined, undefined, 80, 'webp');
+  }
+  return fallback;
+}
+
+// Generate responsive image sources
+export function generateResponsiveSources(src: string, breakpoints = [320, 768, 1024, 1440]) {
+  return breakpoints.map(width => ({
+    src: optimizeImageUrl(src, width, undefined, 80, 'webp'),
+    media: `(max-width: ${width}px)`
+  }));
 }
 
 // Bundle splitting utility

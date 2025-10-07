@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Database } from '../../lib/database.types';
@@ -21,6 +21,9 @@ export function useNotifications() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+
+  // Use refs to store the latest callback functions to avoid dependency issues
+  const addNotificationRef = useRef<((notification: any) => void) | null>(null);
 
   // Load notifications from localStorage
   const loadNotifications = useCallback(() => {
@@ -70,6 +73,9 @@ export function useNotifications() {
     saveNotifications(updated);
   }, [user, notifications, saveNotifications]);
 
+  // Store the latest addNotification function in the ref
+  addNotificationRef.current = addNotification;
+
   // Mark notification as read
   const markAsRead = useCallback((id: string) => {
     const updated = notifications.map(n => 
@@ -95,45 +101,52 @@ export function useNotifications() {
     const title = changeType === 'new' ? 'New Order Received' :
                   changeType === 'cancelled' ? 'Order Cancelled' :
                   'Order Status Updated';
-    
+
     const message = changeType === 'new' ? `New order #${order.id.slice(-8)} from ${order.customer_name}` :
                    changeType === 'cancelled' ? `Order #${order.id.slice(-8)} has been cancelled` :
                    `Order #${order.id.slice(-8)} status changed to ${order.status}`;
 
     // Use deterministic id for de-duplication
     const timeKey = (order as any).updated_at || (order as any).created_at || new Date().toISOString();
-    addNotification({
-      id: `order_${order.id}_${changeType}_${timeKey}`,
-      type: changeType === 'new' ? 'order_new' :
-            changeType === 'cancelled' ? 'order_cancelled' : 'order_status_change',
-      title,
-      message,
-      data: {
-        order_id: order.id,
-        customer_name: order.customer_name,
-        status: order.status,
-        total_amount: order.total_amount,
-      },
-    });
-  }, [addNotification]);
+
+    // Use the current addNotification function from the ref
+    if (addNotificationRef.current) {
+      addNotificationRef.current({
+        id: `order_${order.id}_${changeType}_${timeKey}`,
+        type: changeType === 'new' ? 'order_new' :
+              changeType === 'cancelled' ? 'order_cancelled' : 'order_status_change',
+        title,
+        message,
+        data: {
+          order_id: order.id,
+          customer_name: order.customer_name,
+          status: order.status,
+          total_amount: order.total_amount,
+        },
+      });
+    }
+  }, []); // No dependencies needed since we use the ref
 
   // Create notification from new message
   const createMessageNotification = useCallback((message: Message) => {
     if (message.sender_type !== 'customer') return;
 
-    addNotification({
-      id: `message_${message.id}`,
-      type: 'message_new',
-      title: 'New Message from Customer',
-      message: `${message.subject || 'New message'}: ${message.message.substring(0, 100)}${message.message.length > 100 ? '...' : ''}`,
-      data: {
-        message_id: message.id,
-        customer_id: message.customer_id,
-        subject: message.subject,
-        message: message.message,
-      },
-    });
-  }, [addNotification]);
+    // Use the current addNotification function from the ref
+    if (addNotificationRef.current) {
+      addNotificationRef.current({
+        id: `message_${message.id}`,
+        type: 'message_new',
+        title: 'New Message from Customer',
+        message: `${message.subject || 'New message'}: ${message.message.substring(0, 100)}${message.message.length > 100 ? '...' : ''}`,
+        data: {
+          message_id: message.id,
+          customer_id: message.customer_id,
+          subject: message.subject,
+          message: message.message,
+        },
+      });
+    }
+  }, []); // No dependencies needed since we use the ref
 
   // Set up real-time subscriptions with robust retries and rebound
   useEffect(() => {

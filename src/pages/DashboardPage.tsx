@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, memo } from 'react';
 import {
   Package,
   Users,
@@ -20,7 +20,7 @@ import { LoadingSpinner, DashboardSkeleton, StatCardGrid, ChartErrorState, Error
 import { useDashboardRetry } from '../shared/hooks/useRetry';
 import { formatCurrency, formatDateTime, formatOrderId } from '../shared/utils/formatters';
 
-function DashboardPage() {
+const DashboardPage = memo(() => {
   const { data: stats, isLoading: statsLoading, error: statsError } = useDashboardStats();
   const { data: recentOrders = [], isLoading: ordersLoading, error: ordersError } = useRecentOrders(4);
   const { data: salesData = [], isLoading: salesLoading, error: salesError } = useSalesData(6);
@@ -28,7 +28,7 @@ function DashboardPage() {
 
   const { retry, isRetrying, canRetry } = useDashboardRetry();
 
-  // All hooks must be called before any early returns
+  // Memoize expensive stat card calculations
   const statCards = useMemo(() => [
     {
       name: 'Total Orders',
@@ -59,6 +59,22 @@ function DashboardPage() {
       change: '+0%',
     },
   ], [stats]);
+
+  // Memoize processed sales data for charts
+  const processedSalesData = useMemo(() => {
+    return salesData?.map(item => ({
+      ...item,
+      formattedRevenue: formatCurrency(item.revenue || 0)
+    }));
+  }, [salesData]);
+
+  // Memoize processed order status data
+  const processedOrderStatusData = useMemo(() => {
+    return orderStatusData?.map(item => ({
+      ...item,
+      formattedValue: (item.value || 0).toLocaleString()
+    }));
+  }, [orderStatusData]);
 
   const isLoading = statsLoading || salesLoading || statusLoading;
   const hasError = statsError || salesError || statusError;
@@ -127,7 +143,7 @@ function DashboardPage() {
             height={300}
             mobileHeight={250}
           >
-            <BarChart data={orderStatusData}>
+            <BarChart data={processedOrderStatusData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="status" />
               <YAxis />
@@ -154,6 +170,6 @@ function DashboardPage() {
       </div>
     </div>
   );
-}
+});
 
-export default React.memo(DashboardPage);
+export default DashboardPage;
