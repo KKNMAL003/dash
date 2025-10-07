@@ -2,6 +2,18 @@
   publish = "dist"
   command = "npm run build"
 
+# Asset serving rules (must come before SPA fallback)
+[[redirects]]
+  from = "/assets/*"
+  to = "/assets/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/api/*"
+  to = "/api/:splat"
+  status = 200
+
+# SPA fallback for client-side routing
 [[redirects]]
   from = "/*"
   to = "/index.html"
@@ -67,35 +79,10 @@
   [headers.values]
     Cache-Control = "public, max-age=3600"
 
-# Add compression for JS and CSS files
-[[headers]]
-  for = "/*.js"
-  [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
-    Content-Encoding = "gzip"
+# Cache static assets (compression handled by Netlify automatically)
+# Remove manual compression headers to avoid conflicts
 
-[[headers]]
-  for = "/*.css"
-  [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
-    Content-Encoding = "gzip"
-
-# Add Brotli compression for modern browsers
-[[headers]]
-  for = "/*.js"
-  [headers.values]
-    Content-Encoding = "br"
-
-[[headers]]
-  for = "/*.css"
-  [headers.values]
-    Content-Encoding = "br"
-
-# Add resource hints for critical assets
-[[headers]]
-  for = "/"
-  [headers.values]
-    Link = "</assets/react-vendor-*.js>; rel=preload; as=script, </assets/index-*.css>; rel=preload; as=style"
+# Resource hints (removed preload to avoid conflicts with SPA routing)
 
 [build.environment]
   NODE_VERSION = "20"
