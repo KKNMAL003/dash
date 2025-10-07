@@ -74,6 +74,7 @@ export default function OrdersPage() {
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
+              id="orders-search"
               type="text"
               placeholder="Search orders by customer name, address, or order ID..."
               className="input pl-10"
@@ -84,6 +85,7 @@ export default function OrdersPage() {
           <div className="relative">
             <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <select
+              id="status-filter"
               className="input pl-10 pr-8"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}

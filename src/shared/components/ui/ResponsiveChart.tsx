@@ -88,6 +88,7 @@ export function MetricChart({
     <div className="flex flex-col sm:flex-row gap-2">
       {metricOptions.length > 0 && onMetricChange && (
         <select
+          id="chart-metric"
           value={metric}
           onChange={(e) => onMetricChange(e.target.value)}
           className="text-sm border border-gray-300 rounded px-2 py-1 bg-white"
@@ -101,6 +102,7 @@ export function MetricChart({
       )}
       {periodOptions.length > 0 && onPeriodChange && (
         <select
+          id="chart-period"
           value={period}
           onChange={(e) => onPeriodChange(e.target.value)}
           className="text-sm border border-gray-300 rounded px-2 py-1 bg-white"

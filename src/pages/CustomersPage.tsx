@@ -149,6 +149,7 @@ export default function CustomersPage() {
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-1">
           <input
+            id="customers-search"
             type="text"
             placeholder="Search customers by name, phone, or address..."
             value={searchTerm}

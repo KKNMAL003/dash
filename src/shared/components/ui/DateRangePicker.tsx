@@ -90,6 +90,7 @@ export function DateRangePicker({
               {DATE_RANGE_PRESETS.map((preset) => (
                 <label key={preset.value} className="flex items-center">
                   <input
+                    id={`date-preset-${preset.value}`}
                     type="radio"
                     name="dateRange"
                     value={preset.value}
@@ -110,6 +111,7 @@ export function DateRangePicker({
                     Start Date
                   </label>
                   <input
+                    id="custom-start-date"
                     type="date"
                     value={customStart}
                     onChange={(e) => setCustomStart(e.target.value)}
@@ -122,6 +124,7 @@ export function DateRangePicker({
                     End Date
                   </label>
                   <input
+                    id="custom-end-date"
                     type="date"
                     value={customEnd}
                     onChange={(e) => setCustomEnd(e.target.value)}

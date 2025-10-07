@@ -203,6 +203,7 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
                   >
                     <div className="flex items-start space-x-3">
                       <input
+                        id={`notification-${notification.id}`}
                         type="checkbox"
                         checked={selectedNotifications.has(notification.id)}
                         onChange={() => handleSelectNotification(notification.id)}

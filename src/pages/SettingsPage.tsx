@@ -226,6 +226,7 @@ export default function SettingsPage() {
                               <p className="text-sm text-gray-500">{setting.description}</p>
                             </div>
                             <input
+                              id={`notification-${setting.key}`}
                               type="checkbox"
                               className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                               checked={notificationSettings[setting.key as keyof typeof notificationSettings]}
@@ -252,6 +253,7 @@ export default function SettingsPage() {
                               <p className="text-sm text-gray-500">{setting.description}</p>
                             </div>
                             <input
+                              id={`notification-${setting.key}`}
                               type="checkbox"
                               className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                               checked={notificationSettings[setting.key as keyof typeof notificationSettings]}

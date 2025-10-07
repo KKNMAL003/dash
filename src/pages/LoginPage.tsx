@@ -82,6 +82,7 @@ export default function LoginPage() {
                 </div>
                 <input
                   {...register('email')}
+                  id="email"
                   type="email"
                   className="input pl-10"
                   placeholder="Email address"
@@ -103,6 +104,7 @@ export default function LoginPage() {
                 </div>
                 <input
                   {...register('password')}
+                  id="password"
                   type="password"
                   className="input pl-10"
                   placeholder="Password"

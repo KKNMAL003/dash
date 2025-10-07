@@ -289,6 +289,7 @@ export default function ChatPage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
+              id="customer-search"
               type="text"
               placeholder="Search customers..."
               className="input pl-10 pr-20"
@@ -461,6 +462,7 @@ export default function ChatPage() {
 
               <div className="flex space-x-2">
                 <input
+                  id="message-input"
                   type="text"
                   value={message}
                   onChange={handleMessageChange}
