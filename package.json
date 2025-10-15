@@ -70,6 +70,7 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.22",
+    "expo": "^54.0.13",
     "install": "^0.13.0",
     "jsdom": "^26.1.0",
     "npm": "^11.6.1",
