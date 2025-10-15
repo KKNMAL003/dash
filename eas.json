@@ -12,10 +12,12 @@
       }
     },
     "preview": {
+      "workflow": "generic",
       "distribution": "internal",
       "ios": {
         "simulator": false,
-        "buildConfiguration": "Release"
+        "buildConfiguration": "Release",
+        "scheme": "App"
       },
       "android": {
         "buildType": "apk"
