@@ -3,29 +3,11 @@
     "name": "Onolo Admin",
     "slug": "manager-onolo-group",
     "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./public/icon.png",
-    "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./public/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.onolo.admin",
-      "buildNumber": "1",
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
+      "bundleIdentifier": "com.onolo.admin"
     },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./public/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "package": "com.onolo.admin",
-      "versionCode": 1
+      "package": "com.onolo.admin"
     },
     "extra": {
       "eas": {

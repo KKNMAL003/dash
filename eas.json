@@ -13,6 +13,7 @@
     },
     "preview": {
       "distribution": "internal",
+      "prebuildCommand": "echo 'Skipping prebuild - using Capacitor'",
       "ios": {
         "simulator": false,
         "buildConfiguration": "Release",
