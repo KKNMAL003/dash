@@ -64,17 +64,53 @@ jobs:
           PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
         run: |
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          echo "$PROVISIONING_PROFILE_BASE64" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+
+          # Debug: Check if secret is set
+          if [ -z "$PROVISIONING_PROFILE_BASE64" ]; then
+            echo "Error: IOS_PROVISIONING_PROFILE_BASE64 secret is not set"
+            exit 1
+          fi
+
+          echo "Secret length: ${#PROVISIONING_PROFILE_BASE64} characters"
+
+          # Decode and save the provisioning profile (remove any whitespace first)
+          echo "$PROVISIONING_PROFILE_BASE64" | tr -d '\n\r ' | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+
+          # Verify the file was created and has content
+          PROFILE_SIZE=$(wc -c < ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision | tr -d ' ')
+          echo "Decoded profile size: $PROFILE_SIZE bytes"
+
+          if [ "$PROFILE_SIZE" -eq 0 ]; then
+            echo "Error: Provisioning profile is empty after decoding"
+            exit 1
+          fi
+
+          # Extract and display profile info for debugging
+          echo "Provisioning profile imported successfully"
+          security cms -D -i ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision | grep -A1 "Name\|UUID\|TeamIdentifier" | head -20
       
       - name: Build iOS App
         run: |
           cd ios/App
 
-          # Extract provisioning profile UUID for precise matching
-          PROFILE_UUID=$(security cms -D -i ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision \
-            | /usr/libexec/PlistBuddy -c 'Print :UUID' /dev/stdin)
+          # Verify provisioning profile exists
+          PROFILE_PATH=~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+          if [ ! -f "$PROFILE_PATH" ]; then
+            echo "Error: Provisioning profile not found at $PROFILE_PATH"
+            exit 1
+          fi
 
-          echo "Using provisioning profile UUID: $PROFILE_UUID"
+          # Extract provisioning profile UUID for precise matching
+          PROFILE_UUID=$(security cms -D -i "$PROFILE_PATH" | /usr/libexec/PlistBuddy -c 'Print :UUID' /dev/stdin 2>&1)
+
+          if [ -z "$PROFILE_UUID" ]; then
+            echo "Error: Could not extract UUID from provisioning profile"
+            echo "Falling back to profile name"
+            PROFILE_SPECIFIER="*[expo] com.onolo.admin AdHoc 1760491748998"
+          else
+            echo "Using provisioning profile UUID: $PROFILE_UUID"
+            PROFILE_SPECIFIER="$PROFILE_UUID"
+          fi
 
           xcodebuild -workspace App.xcworkspace \
             -scheme App \
@@ -82,7 +118,7 @@ jobs:
             -archivePath $PWD/build/App.xcarchive \
             DEVELOPMENT_TEAM=LUHV7R927U \
             CODE_SIGN_STYLE=Manual \
-            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_UUID" \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_SPECIFIER" \
             PRODUCT_BUNDLE_IDENTIFIER=com.onolo.admin \
             CODE_SIGN_IDENTITY="Apple Distribution: Malesela Kekana (LUHV7R927U)" \
             archive
