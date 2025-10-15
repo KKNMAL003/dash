@@ -13,11 +13,11 @@
     },
     "preview": {
       "distribution": "internal",
-      "prebuildCommand": "echo 'Skipping prebuild - using Capacitor'",
       "ios": {
         "simulator": false,
         "buildConfiguration": "Release",
-        "scheme": "App"
+        "scheme": "App",
+        "image": "latest"
       },
       "android": {
         "buildType": "apk"

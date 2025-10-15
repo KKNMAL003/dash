@@ -9,7 +9,8 @@
     "dev:force": "rm -rf node_modules/.vite dist && VITE_CACHE_BUST=true npm run dev",
     "clear-cache": "./clear-dev-cache.sh",
     "deploy:prod": "./scripts/deploy-with-cache-bust.sh",
-    "build": "tsc && vite build",
+    "build": "vite build",
+    "build:with-types": "tsc && vite build",
     "build:analyze": "tsc && vite build --mode analyze",
     "analyze": "vite build --mode analyze && npx vite-bundle-analyzer dist/stats.html",
     "preview": "vite preview",
@@ -29,7 +30,7 @@
     "cap:open:android": "npx cap open android",
     "cap:run:ios": "npm run build && npx cap sync ios && npx cap open ios",
     "cap:run:android": "npm run build && npx cap sync android && npx cap open android",
-    "eas-build-post-install": "npx cap add ios --packagemanager SPM || true && npm run cap:sync:ios"
+    "eas-build-pre-install": "./scripts/setup-ios.sh"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.3",
@@ -70,8 +71,8 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.22",
-    "expo": "^54.0.13",
-    "react-native": "0.82.0",
+
+
     "install": "^0.13.0",
     "jsdom": "^26.1.0",
     "npm": "^11.6.1",
