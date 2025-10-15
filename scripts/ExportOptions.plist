@@ -11,7 +11,7 @@
     <key>provisioningProfiles</key>
     <dict>
         <key>com.onolo.admin</key>
-        <string>Onolo Admin AdHoc</string>
+        <string>*[expo] com.onolo.admin AdHoc 1760491748998</string>
     </dict>
 </dict>
 </plist>

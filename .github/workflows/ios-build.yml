@@ -69,10 +69,22 @@ jobs:
       - name: Build iOS App
         run: |
           cd ios/App
+
+          # Extract provisioning profile UUID for precise matching
+          PROFILE_UUID=$(security cms -D -i ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision \
+            | /usr/libexec/PlistBuddy -c 'Print :UUID' /dev/stdin)
+
+          echo "Using provisioning profile UUID: $PROFILE_UUID"
+
           xcodebuild -workspace App.xcworkspace \
             -scheme App \
             -configuration Release \
             -archivePath $PWD/build/App.xcarchive \
+            DEVELOPMENT_TEAM=LUHV7R927U \
+            CODE_SIGN_STYLE=Manual \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_UUID" \
+            PRODUCT_BUNDLE_IDENTIFIER=com.onolo.admin \
+            CODE_SIGN_IDENTITY="Apple Distribution: Malesela Kekana (LUHV7R927U)" \
             archive
       
       - name: Export IPA
