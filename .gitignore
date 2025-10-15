@@ -2,3 +2,17 @@ node_modules/
 .env
 .env*.local
 dist/
+
+# Capacitor
+ios/App/Pods
+ios/App/Podfile.lock
+ios/App/App.xcworkspace
+android/.gradle
+android/build
+android/app/build
+android/.idea
+android/local.properties
+
+# Firebase config files (add these manually per environment)
+android/app/google-services.json
+ios/App/App/GoogleService-Info.plist

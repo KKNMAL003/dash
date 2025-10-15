@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase, type Profile } from '../lib/supabase';
 import toast from 'react-hot-toast';
+import { initPushNotifications, removePushNotifications } from '../shared/services/pushNotifications';
 
 interface AuthContextType {
   user: User | null;
@@ -53,6 +54,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await supabase.auth.signOut();
         } else if (profileData && profileData.role === 'admin') {
           setProfile(profileData);
+          // Initialize push notifications for admin users
+          try {
+            await initPushNotifications(session.user.id);
+          } catch (error) {
+            console.error('Failed to initialize push notifications:', error);
+          }
         } else {
           // For non-admin users, deny access
           toast.error('Access denied. Admin privileges required.');
@@ -98,6 +105,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             await supabase.auth.signOut();
           } else if (profileData && profileData.role === 'admin') {
             setProfile(profileData);
+            // Initialize push notifications for admin users
+            try {
+              await initPushNotifications(session.user.id);
+            } catch (error) {
+              console.error('Failed to initialize push notifications:', error);
+            }
           } else {
             setProfile(null);
             toast.error('Access denied. Admin privileges required.');
@@ -108,7 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setProfile(null);
           await supabase.auth.signOut();
         }
-        
+
         setLoading(false);
       }
     );
@@ -136,9 +149,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
+      // Remove push notifications before signing out
+      if (user?.id) {
+        try {
+          await removePushNotifications(user.id);
+        } catch (error) {
+          console.error('Failed to remove push notifications:', error);
+        }
+      }
+
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
-      
+
       setUser(null);
       setProfile(null);
       toast.success('Signed out successfully');
