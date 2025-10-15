@@ -12,9 +12,9 @@
       }
     },
     "preview": {
-      "workflow": "generic",
       "distribution": "internal",
       "ios": {
+        "workflow": "generic",
         "simulator": false,
         "buildConfiguration": "Release",
         "scheme": "App"
