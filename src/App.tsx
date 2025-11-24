@@ -20,6 +20,7 @@ const ChatPage = lazy(() => import('./pages/ChatPage'));
 const DeliveryPage = lazy(() => import('./pages/DeliveryPage'));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage'));
 
 // Loading component for Suspense fallback
 const PageLoader = () => (
@@ -56,6 +57,14 @@ function AppRoutes() {
       <Route 
         path="/login" 
         element={user ? <Navigate to="/" replace /> : <LoginPage />} 
+      />
+      <Route
+        path="/privacy-policy"
+        element={
+          <Suspense fallback={<PageLoader />}>
+            <PrivacyPolicyPage />
+          </Suspense>
+        }
       />
       <Route
         path="/*"

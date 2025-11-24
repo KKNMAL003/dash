@@ -175,6 +175,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <LogOut className="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500" />
               Sign out
             </button>
+
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <Link to="/privacy-policy" className="block px-2 text-xs text-gray-400 hover:text-gray-600">
+                Privacy Policy
+              </Link>
+            </div>
           </div>
         </div>
       </div>

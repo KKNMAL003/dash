@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -132,6 +133,12 @@ export default function LoginPage() {
           </div>
 
         </form>
+
+        <div className="mt-4 text-center">
+          <Link to="/privacy-policy" className="text-sm text-primary-100 hover:text-white">
+            Privacy Policy
+          </Link>
+        </div>
       </div>
     </div>
   );
